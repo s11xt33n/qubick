@@ -661,26 +661,17 @@ function renderGallery() {
   g.textContent = "";
   if (!f || !f.length) { const p = document.createElement("p"); p.className = "note"; p.textContent = "Рисунки появятся после первого прогона анализа."; g.appendChild(p); return; }
   const prog = (data.progress && data.progress.series) || {};
-  const when = (t) => { const d = new Date(t * 1000); return d.toLocaleString("ru", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
+  const hhmm = (t) => new Date(t * 1000).toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
   f.forEach((it) => {
     const a = document.createElement("a"); a.href = `figures/${it.file}?t=${it.mtime || ""}`; a.target = "_blank"; a.rel = "noopener";
     const img = document.createElement("img"); img.loading = "lazy"; img.src = `figures/${it.file}?t=${it.mtime || ""}`; img.alt = it.title;
     const s = document.createElement("span"); s.className = "g-title"; s.textContent = it.title;
     const m = document.createElement("span"); m.className = "g-meta";
     const pr = it.series && prog[it.series];
-    let status = "", cls = "";
-    if (pr && pr.total) {
-      const done = pr.done >= pr.total;
-      status = done ? "финальный" : "промежуточный";
-      cls = done ? "final" : "partial";
-      m.textContent = `построен ${when(it.mtime)} · по ${pr.done.toLocaleString("ru")} из ${pr.total.toLocaleString("ru")} запусков (${Math.floor(100 * pr.done / pr.total)}%)`;
-    } else {
-      status = "расчёт на GPU";
-      cls = "partial";
-      m.textContent = `построен ${when(it.mtime)}`;
-    }
-    const b = document.createElement("span"); b.className = `g-badge ${cls}`; b.textContent = status;
-    a.append(img, s, m, b); g.appendChild(a);
+    const done = pr && pr.total && pr.done >= pr.total;
+    m.textContent = done ? "финальная версия" :
+      pr && pr.total ? `обновлён ${hhmm(it.mtime)} · ${Math.floor(100 * pr.done / pr.total)}% данных` : `обновлён ${hhmm(it.mtime)}`;
+    a.append(img, s, m); g.appendChild(a);
   });
 }
 
