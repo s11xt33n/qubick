@@ -83,8 +83,8 @@ python -m qhnn.experiments.analyze        # таблицы -> results/tables, р
 
 ```powershell
 powershell -File scripts\server_setup.ps1                      # окружение (.venv c CUDA, .venv-cpu без CUDA)
-powershell -File scripts\launch.ps1 -Config "configsision.yaml" -Workers 56 -Log cpu_a
-powershell -File scripts\launch.ps1 -Config "configsision_q12.yaml" -Workers 6 -Device cuda -Tag .gpu -Log gpu_a
+powershell -File scripts\launch.ps1 -Config "configs\vision.yaml" -Workers 56 -Log cpu_a
+powershell -File scripts\launch.ps1 -Config "configs\vision_q12.yaml" -Workers 6 -Device cuda -Tag .gpu -Log gpu_a
 powershell -File scripts\status.ps1                            # загрузка и прогресс
 ```
 
