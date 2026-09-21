@@ -61,7 +61,7 @@ python -m venv .venv
 | Конфиг / скрипт | Что исследуется |
 |---|---|
 | `configs/tabular.yaml` | 5 моделей × 5 табличных наборов × 10 seed |
-| `configs/sweep.yaml` | влияние числа кубитов (2–8) и глубины (1–4) |
+| `configs/sweep.yaml` | влияние числа кубитов (2–12) и глубины (1–4) |
 | `configs/ablation.yaml` | кодирование × анзац × re-uploading |
 | `configs/shots.yaml` | обучение при конечном числе измерений |
 | `configs/vision.yaml` | ResNet18 + голова, режим малых данных (MNIST, Fashion-MNIST, PneumoniaMNIST, BreastMNIST) |
