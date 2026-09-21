@@ -751,8 +751,14 @@ function renderServer() {
     e.append(a1, b1); k.appendChild(e);
   });
   const period = (document.querySelector("#hist-period .active") || {}).dataset?.min || "all";
-  const all = d.history || [];
-  const hs = period === "all" ? all : all.slice(-Number(period));
+  let hs;
+  if (period !== "all" && Number(period) <= 60 && p && p.monitor && p.monitor.length) {
+    // короткие периоды — исходные замеры каждые 15 секунд
+    hs = p.monitor.slice(-Number(period) * 4).map((r) => ({ ...r, t: String(r.time).slice(-8) }));
+  } else {
+    const all = d.history || [];
+    hs = period === "all" ? all : all.slice(-Number(period));
+  }
   const xs = hs.map((r) => r.t);
   const axisX = { ...base().xAxis, type: "category", data: xs, boundaryGap: false,
     axisLabel: { color: css("--muted"), fontSize: 11, interval: Math.max(0, Math.floor(xs.length / 8)) } };
