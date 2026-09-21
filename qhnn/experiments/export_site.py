@@ -20,7 +20,7 @@ import yaml
 from qhnn.experiments.analyze import RES, _load, mean_std, paired_tests
 from qhnn.experiments.runner import ROOT, expand
 
-SERIES = ["tabular", "sweep", "ablation", "shots", "vision"]
+SERIES = ["tabular", "sweep", "ablation", "shots", "vision", "vision_q12", "init"]
 
 
 def _clean(o):
@@ -47,6 +47,8 @@ def progress() -> dict:
     out = {"updated": time.strftime("%Y-%m-%d %H:%M:%S"), "series": {}}
     for name in SERIES:
         cfg_path = ROOT / "configs" / f"{name}.yaml"
+        if not cfg_path.exists():
+            continue
         total = len(expand(yaml.safe_load(open(cfg_path, encoding="utf-8"))))
         df = _load(name)
         done = 0 if df is None else df.run_id.nunique()
@@ -114,6 +116,23 @@ def vision():
             "runs": int(len(df))}
 
 
+def vision_q12():
+    df = _load("vision_q12")
+    if df is None:
+        return None
+    df = df.copy()
+    df["n_train"] = df[["n_train", "n_train_actual"]].min(axis=1)
+    return {"summary": _records(mean_std(df, ["dataset", "model", "n_train"])), "runs": int(len(df))}
+
+
+def init_exp():
+    df = _load("init")
+    if df is None:
+        return None
+    s = mean_std(df, ["dataset", "model", "n_qubits", "n_layers", "init"])
+    return {"summary": _records(s), "runs": int(len(df))}
+
+
 def csv_records(name):
     p = RES / f"{name}.csv"
     return _records(pd.read_csv(p)) if p.exists() else None
@@ -127,7 +146,9 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     parts = {"progress": progress(), "tabular": tabular(), "sweep": sweep(),
              "ablation": ablation(), "shots": shots(), "vision": vision(),
-             "barren": csv_records("barren"), "speed": csv_records("speed")}
+             "vision_q12": vision_q12(), "init": init_exp(),
+             "barren": csv_records("barren"), "barren_init": csv_records("barren_init"),
+             "speed": csv_records("speed")}
     for name, data in parts.items():
         if data is None:
             continue

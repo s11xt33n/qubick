@@ -21,7 +21,8 @@ const DS_LABEL = {
   "vision:breast": "BreastMNIST",
 };
 const SERIES_LABEL = { tabular: "Табличные данные", vision: "Изображения", sweep: "Кубиты × глубина",
-  ablation: "Абляция", shots: "Shots" };
+  ablation: "Абляция", shots: "Shots", vision_q12: "12 кубитов (V100)", init: "Инициализация" };
+const INIT_LABEL = { uniform: "uniform U[0, 2π)", small: "small N(0, 0.1²)", zero: "zero" };
 
 const $ = (id) => document.getElementById(id);
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -153,7 +154,8 @@ async function load(name) {
 }
 
 async function loadAll() {
-  const names = ["progress", "tabular", "vision", "sweep", "ablation", "shots", "barren", "speed"];
+  const names = ["progress", "tabular", "vision", "sweep", "ablation", "shots", "barren", "speed",
+    "vision_q12", "init", "barren_init"];
   const res = await Promise.all(names.map(load));
   names.forEach((n, i) => { if (res[i]) data[n] = res[i]; });
   renderAll();
@@ -161,7 +163,7 @@ async function loadAll() {
 
 function renderAll() {
   const steps = [renderModels, renderProgress, renderOverview, renderTabular, renderVision,
-    renderSweep, renderAblation, renderShots, renderBarren, renderSpeed];
+    renderSweep, renderAblation, renderShots, renderBarren, renderSpeed, renderQ12, renderInit];
   steps.forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
 
@@ -497,6 +499,81 @@ function renderSpeed() {
   }), true);
 }
 
+// ---------------------------------------------------------------- 12 кубитов
+function renderQ12() {
+  const v = data.vision, d = data.vision_q12;
+  if (!d || !d.summary.length) { placeholder("ch-q12", "Расчёт идёт на Tesla V100 — данные появятся автоматически"); return; }
+  const dss = Object.keys(DS_LABEL).filter((x) => d.summary.some((r) => r.dataset === x));
+  fillSelect("q12-ds", dss, DS_LABEL);
+  const ds = $("q12-ds").value;
+  const rows = [];
+  if (v) v.summary.filter((r) => r.dataset === ds && r.model === "hybrid").forEach((r) => rows.push(r));
+  d.summary.filter((r) => r.dataset === ds && r.model === "hybrid").forEach((r) => rows.push({ ...r, n_qubits: 12 }));
+  const ns = uniq(d.summary.filter((r) => r.dataset === ds).map((r) => r.n_train)).sort((a, b) => a - b);
+  const qs = uniq(rows.map((r) => r.n_qubits)).sort((a, b) => a - b);
+  const ramp = ["--r250", "--r350", "--r450", "--r550", "--r650", "--r650"];
+  $("q12-title").textContent = `${DS_LABEL[ds]}: Hybrid QNN — accuracy в зависимости от числа кубитов`;
+  const c = chart("ch-q12");
+  if (c) c.setOption(base({
+    tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => `<b>${ps[0].axisValue} кубитов</b><br>` +
+      ps.filter((p) => p.value != null).map((p) => tipRow(p.color, fmt(p.value), p.seriesName)).join("") },
+    xAxis: { ...base().xAxis, type: "category", data: qs.map(String), name: "Кубиты", nameLocation: "middle", nameGap: 26 },
+    yAxis: { ...base().yAxis, type: "value", scale: true, name: "Accuracy" },
+    series: ns.map((n, i) => ({ name: `${n} примеров`, type: "line", symbolSize: 8,
+      data: qs.map((q) => { const r = rows.find((x) => x.n_qubits === q && x.n_train === n); return r ? r.accuracy_mean : null; }),
+      lineStyle: { width: 2, color: css(ramp[i]) }, itemStyle: { color: css(ramp[i]), borderColor: css("--surface"), borderWidth: 2 } })),
+  }), true);
+}
+
+// ---------------------------------------------------------------- инициализация
+function renderInit() {
+  const b = data.barren_init;
+  const cols = { uniform: css("--s1"), small: css("--s2"), zero: css("--s3") };
+  ["local", "global"].forEach((cost) => {
+    if (!b) { placeholder(`ch-binit-${cost}`, "Расчёт идёт на Tesla V100…"); return; }
+    // берём самую глубокую схему, для которой уже посчитано хотя бы 3 точки
+    const Ls = uniq(b.map((r) => r.n_layers)).sort((x, y) => y - x);
+    const L = Ls.find((l) => b.filter((r) => r.n_layers === l && r.cost === cost).length >= 3 * uniq(b.map((r) => r.init)).length) || Ls[Ls.length - 1];
+    const rows = b.filter((r) => r.cost === cost && r.n_layers === L);
+    const h = $(`ch-binit-${cost}`).previousElementSibling;
+    if (h) h.textContent = `Var[∂C/∂θ], ${cost === "local" ? "локальная" : "глобальная"} стоимость, L = ${L}`;
+    const qs = uniq(b.map((r) => r.n_qubits)).sort((x, y) => x - y);
+    const inits = uniq(rows.map((r) => r.init));
+    const c = chart(`ch-binit-${cost}`);
+    if (c) c.setOption(base({
+      tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => `<b>${ps[0].axisValue} кубитов</b><br>` +
+        ps.filter((p) => p.value != null).map((p) => tipRow(p.color, Number(p.value).toExponential(2), p.seriesName)).join("") },
+      xAxis: { ...base().xAxis, type: "category", data: qs.map(String), name: "Кубиты", nameLocation: "middle", nameGap: 26 },
+      yAxis: { ...base().yAxis, type: "log", name: "Var[∂C/∂θ]", axisLabel: { color: css("--muted"), formatter: (v) => Number(v).toExponential(0) } },
+      series: inits.map((it) => ({ name: INIT_LABEL[it] || it, type: "line", symbolSize: 8,
+        data: qs.map((q) => { const r = rows.find((x) => x.n_qubits === q && x.init === it); return r ? r.grad_var : null; }),
+        lineStyle: { width: 2, color: cols[it] }, itemStyle: { color: cols[it], borderColor: css("--surface"), borderWidth: 2 } })),
+    }), true);
+  });
+  const d = data.init;
+  if (!d || !d.summary.length) { placeholder("ch-init", "Расчёт идёт — данные появятся автоматически"); return; }
+  const dss = ["breast_cancer", "moons", "wine"].filter((x) => d.summary.some((r) => r.dataset === x));
+  fillSelect("init-ds", dss, DS_LABEL);
+  const ds = $("init-ds").value, m = $("init-model").value;
+  const rows = d.summary.filter((r) => r.dataset === ds && r.model === m);
+  const cfgs = uniq(rows.map((r) => `${r.n_qubits}|${r.n_layers}`)).sort();
+  const lbl = (k) => { const [q, L] = k.split("|"); return `${q} кубитов, L=${L}`; };
+  const c = chart("ch-init");
+  if (c) c.setOption(base({
+    tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: css("--grid"), opacity: 0.35 } },
+      formatter: (ps) => `<b>${ps[0].axisValue}</b><br>` + ps.map((p) => {
+        const r = rows.find((x) => lbl(`${x.n_qubits}|${x.n_layers}`) === p.axisValue && (INIT_LABEL[x.init] || x.init) === p.seriesName) || {};
+        return tipRow(p.color, `${fmt(r.accuracy_mean)} ± ${fmt(r.accuracy_std)}`, p.seriesName); }).join("") },
+    xAxis: { ...base().xAxis, type: "category", data: cfgs.map(lbl) },
+    yAxis: { ...base().yAxis, type: "value", scale: true, name: "Accuracy" },
+    series: ["uniform", "small"].map((it) => ({ name: INIT_LABEL[it], type: "bar", barWidth: 18, barGap: "12%",
+      itemStyle: { color: cols[it], borderRadius: [4, 4, 0, 0] },
+      data: cfgs.map((k) => { const r = rows.find((x) => `${x.n_qubits}|${x.n_layers}` === k && x.init === it); return r ? r.accuracy_mean : null; }) })),
+  }), true);
+}
+
+["q12-ds"].forEach((id) => $(id).addEventListener("change", renderQ12));
+["init-ds", "init-model"].forEach((id) => $(id).addEventListener("change", renderInit));
 ["vis-ds", "vis-q"].forEach((id) => $(id).addEventListener("change", renderVision));
 ["sw-ds", "sw-model"].forEach((id) => $(id).addEventListener("change", renderSweep));
 $("ab-ds").addEventListener("change", renderAblation);

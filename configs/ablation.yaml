@@ -9,6 +9,7 @@ grid:
   ansatz: [strong, basic, hea]
   reupload: [false, true]
 fixed:
+  enc: pi2
   n_qubits: 4
   n_layers: 2
   epochs: 300

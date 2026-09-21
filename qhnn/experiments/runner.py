@@ -37,6 +37,7 @@ from qhnn.training import fit
 
 ROOT = Path(__file__).resolve().parents[2]
 CLASSICAL = {"classical"}  # модели, не зависящие от параметров квантовой схемы
+ENCODER_MODELS = {"hybrid", "bottleneck"}  # модели с классическим encoder'ом (ключ enc)
 QUANTUM_KEYS = ("n_qubits", "n_layers", "encoding", "ansatz", "reupload",
                 "backend", "diff_method", "shots", "init", "init_scale")
 TRAIN_KEYS = ("epochs", "batch_size", "lr", "weight_decay", "patience")
@@ -60,6 +61,8 @@ def expand(cfg: dict) -> list[dict]:
             if p["model"] in CLASSICAL:  # у классической MLP нет кубитов
                 for k in QUANTUM_KEYS:
                     p.pop(k, None)
+            if p["model"] not in ENCODER_MODELS:  # enc влияет только на hybrid/bottleneck
+                p.pop("enc", None)
             rid = run_id(p)
             if rid not in seen:
                 seen.add(rid)
@@ -94,7 +97,7 @@ def run_one(p: dict) -> dict | None:
                       reduce_to=n_q if p["model"] == "quantum" else None)
     torch.manual_seed(seed)
     model = build_model(p["model"], data.in_dim, data.n_classes,
-                        hidden=tuple(p.get("hidden", (32, 16))), **qkw)
+                        hidden=tuple(p.get("hidden", (32, 16))), enc=p.get("enc", "pi2"), **qkw)
     res = fit(model, data, seed=seed, device=device, log_history=log_history,
               **{k: p[k] for k in TRAIN_KEYS if k in p})
     history = res.pop("history")

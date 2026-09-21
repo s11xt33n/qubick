@@ -9,6 +9,7 @@ grid:
   n_layers: [2, 8]
   init: [uniform, small]
 fixed:
+  enc: pi2
   encoding: angle
   ansatz: strong
   epochs: 300

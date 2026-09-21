@@ -6,6 +6,7 @@ log_history: true
 grid:
   dataset: [iris, wine, breast_cancer, moons, circles]
   model: [classical, classical_matched, bottleneck, quantum, hybrid]
+  enc: [pi2, bn]          # encoder гибрида/bottleneck (старые запуски без enc = pi)
 fixed:
   n_qubits: 4
   n_layers: 2

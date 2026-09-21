@@ -24,10 +24,39 @@ def n_params(model: nn.Module) -> int:
 
 
 class ScaledTanh(nn.Module):
-    """Отображает выход encoder'а в диапазон углов (-π, π)."""
+    """Отображает выход encoder'а в диапазон углов (-s, s), s = scale·π."""
+
+    def __init__(self, scale: float = 0.5):
+        super().__init__()
+        self.scale = scale
 
     def forward(self, x):
-        return math.pi * torch.tanh(x)
+        return self.scale * math.pi * torch.tanh(x)
+
+    def extra_repr(self):
+        return f"scale={self.scale}π"
+
+
+ENCODERS = ("pi", "pi2", "bn")
+
+
+def make_encoder(in_dim: int, n_qubits: int, enc: str = "pi2") -> nn.Sequential:
+    """Классический encoder, отображающий признаки в углы кодирования.
+
+    pi  — π·tanh: углы в (-π, π). При насыщении tanh углы ±π дают одинаковое
+          квантовое состояние (RY(π)|0> = -RY(-π)|0>), и информация теряется —
+          на признаках изображений (512 входов) модель перестаёт обучаться.
+    pi2 — (π/2)·tanh, как в Mari et al. (2020): крайние значения различимы.
+    bn  — BatchNorm перед (π/2)·tanh: углы остаются в рабочем (ненасыщенном)
+          диапазоне на протяжении всего обучения.
+    """
+    if enc == "pi":
+        return nn.Sequential(nn.Linear(in_dim, n_qubits), ScaledTanh(1.0))
+    if enc == "pi2":
+        return nn.Sequential(nn.Linear(in_dim, n_qubits), ScaledTanh(0.5))
+    if enc == "bn":
+        return nn.Sequential(nn.Linear(in_dim, n_qubits), nn.BatchNorm1d(n_qubits), ScaledTanh(0.5))
+    raise ValueError(f"Неизвестный encoder: {enc}")
 
 
 class ClassicalMLP(nn.Sequential):
@@ -51,9 +80,9 @@ class QuantumNet(nn.Module):
 
 
 class HybridNet(nn.Module):
-    def __init__(self, in_dim: int, n_classes: int, n_qubits: int = 4, **qkw):
+    def __init__(self, in_dim: int, n_classes: int, n_qubits: int = 4, enc: str = "pi2", **qkw):
         super().__init__()
-        self.encoder = nn.Sequential(nn.Linear(in_dim, n_qubits), ScaledTanh())
+        self.encoder = make_encoder(in_dim, n_qubits, enc)
         self.q = QuantumLayer(n_qubits, **qkw)
         self.head = nn.Linear(n_qubits, n_classes)
 
@@ -64,9 +93,9 @@ class HybridNet(nn.Module):
 class BottleneckNet(nn.Module):
     """Hybrid без квантовой части: encoder -> Linear(n_q, n_q)+tanh -> head."""
 
-    def __init__(self, in_dim: int, n_classes: int, n_qubits: int = 4, **_):
+    def __init__(self, in_dim: int, n_classes: int, n_qubits: int = 4, enc: str = "pi2", **_):
         super().__init__()
-        self.encoder = nn.Sequential(nn.Linear(in_dim, n_qubits), ScaledTanh())
+        self.encoder = make_encoder(in_dim, n_qubits, enc)
         self.mid = nn.Sequential(nn.Linear(n_qubits, n_qubits), nn.Tanh())
         self.head = nn.Linear(n_qubits, n_classes)
 
@@ -81,16 +110,16 @@ def matched_hidden(in_dim: int, n_classes: int, target: int) -> int:
 
 
 def build_model(name: str, in_dim: int, n_classes: int, n_qubits: int = 4,
-                n_layers: int = 2, hidden=(32, 16), **qkw) -> nn.Module:
+                n_layers: int = 2, hidden=(32, 16), enc: str = "pi2", **qkw) -> nn.Module:
     qkw = dict(n_layers=n_layers, **qkw)
     if name == "classical":
         return ClassicalMLP(in_dim, n_classes, hidden)
     if name == "quantum":
         return QuantumNet(in_dim, n_classes, n_qubits, **qkw)
     if name == "hybrid":
-        return HybridNet(in_dim, n_classes, n_qubits, **qkw)
+        return HybridNet(in_dim, n_classes, n_qubits, enc=enc, **qkw)
     if name == "bottleneck":
-        return BottleneckNet(in_dim, n_classes, n_qubits)
+        return BottleneckNet(in_dim, n_classes, n_qubits, enc=enc)
     if name == "classical_matched":
         target = n_params(HybridNet(in_dim, n_classes, n_qubits, **qkw))
         return ClassicalMLP(in_dim, n_classes, (matched_hidden(in_dim, n_classes, target),))

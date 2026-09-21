@@ -23,6 +23,8 @@
       <a href="#ablation">Абляция</a>
       <a href="#shots">Shots</a>
       <a href="#barren">Barren plateaus</a>
+      <a href="#q12">12 кубитов</a>
+      <a href="#init">Инициализация</a>
       <a href="#speed">Скорость</a>
     </nav>
     <button class="theme-btn" id="theme" title="Светлая / тёмная тема">◐</button>
@@ -197,6 +199,28 @@ loss.backward()   # градиент проходит через схему</cod
     <div class="card"><h3>Локальная стоимость ⟨Z₀Z₁⟩</h3><div class="chart" id="ch-barren-local"></div></div>
     <div class="card"><h3>Глобальная стоимость ⟨Z₀…Zₙ₋₁⟩</h3><div class="chart" id="ch-barren-global"></div></div>
   </div>
+</section>
+
+<section id="q12">
+  <h2>Эксперимент 7. Большие квантовые головы на изображениях</h2>
+  <p class="lead">Помогает ли увеличение числа кубитов на реальных задачах? Гибридная голова на 4, 8 и 12 кубитах
+    поверх признаков ResNet18. Схемы на 12 кубитов обучаются на Tesla V100.</p>
+  <div class="controls"><label>Набор данных <select id="q12-ds"></select></label></div>
+  <div class="card"><h3 id="q12-title">Hybrid QNN: accuracy в зависимости от числа кубитов</h3><div class="chart" id="ch-q12"></div></div>
+</section>
+
+<section id="init">
+  <h2>Эксперимент 8. Инициализация весов и обучаемость</h2>
+  <p class="lead">Стандартная инициализация U[0, 2π) против «малой» N(0, 0.1²), при которой схема в начале обучения
+    близка к тождественной (Grant et al., 2019). Сверху — влияние на дисперсию градиента на 2–20 кубитах, снизу —
+    на итоговую точность глубоких схем.</p>
+  <div class="grid2">
+    <div class="card"><h3>Var[∂C/∂θ], локальная стоимость, L = 20</h3><div class="chart" id="ch-binit-local"></div></div>
+    <div class="card"><h3>Var[∂C/∂θ], глобальная стоимость, L = 20</h3><div class="chart" id="ch-binit-global"></div></div>
+  </div>
+  <div class="controls"><label>Набор данных <select id="init-ds"></select></label>
+    <label>Модель <select id="init-model"><option value="hybrid">Hybrid QNN</option><option value="quantum">Quantum QNN</option></select></label></div>
+  <div class="card"><h3>Accuracy: uniform против small</h3><div class="chart" id="ch-init"></div></div>
 </section>
 
 <section id="speed">

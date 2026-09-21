@@ -58,6 +58,8 @@ def fit(model: nn.Module, data: Split, epochs: int = 300, batch_size: int = 32,
         tr_loss = 0.0
         for i in range(0, len(Xtr), batch_size):
             idx = perm[i:i + batch_size]
+            if len(idx) < 2:  # BatchNorm не обучается на батче из одного объекта
+                continue
             opt.zero_grad()
             loss = loss_fn(model(Xtr[idx]), ytr[idx])
             loss.backward()

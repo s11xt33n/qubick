@@ -6,6 +6,7 @@ grid:
   dataset: [vision:mnist, vision:fashion, vision:pneumonia, vision:breast]
   model: [hybrid, quantum, bottleneck, classical_matched]
   n_train: [100, 500, 2000]
+  enc: [pi2, bn]
 fixed:
   n_qubits: 12
   n_layers: 2

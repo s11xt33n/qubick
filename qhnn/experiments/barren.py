@@ -9,14 +9,20 @@
 дисперсия убывает экспоненциально по n уже при малой глубине; для
 local-стоимости при малой глубине убывание гораздо медленнее.
 
+Дополнительно сравниваются стратегии инициализации весов (--inits):
+uniform — U[0, 2π), small — N(0, σ²), zero — нули (Grant et al., 2019).
+
 Производная считается по правилу сдвига параметра — это требует только
-двух прямых проходов и почти не расходует память даже для 14+ кубитов.
+двух прямых проходов и почти не расходует память даже для 20 кубитов.
+Обе функции стоимости вычисляются по одним и тем же прогонам схемы.
+Каждая точка сразу дописывается в CSV; повторный запуск продолжает с места.
 """
 from __future__ import annotations
 
 import argparse
 import math
 import time
+from pathlib import Path
 
 import pandas as pd
 import torch
@@ -26,11 +32,11 @@ from qhnn import simulator as sim
 from qhnn.experiments.runner import ROOT
 
 
-def cost(c, angles, kind):
+def costs(c, angles):
+    """Локальная и глобальная стоимость по одному прогону схемы: (B,), (B,)."""
     p = sim.probabilities(sim.run_circuit(c, angles))
     s = sim.z_signs(c.n_qubits, p.device)
-    obs = s[:, 0] * s[:, 1] if kind == "local" else s.prod(1)
-    return p @ obs
+    return p @ (s[:, 0] * s[:, 1]), p @ s.prod(1)
 
 
 def sample_angles(c, b, init, scale, device):
@@ -46,26 +52,34 @@ def sample_angles(c, b, init, scale, device):
 
 
 @torch.no_grad()
-def grad_variance(n, L, kind, samples, ansatz, device, param_idx=None, chunk=None,
+def grad_variance(n, L, samples, ansatz, device, param_idx=None, chunk=None,
                   init="uniform", scale=0.1):
+    """Возвращает {"local": (var, mean_abs), "global": (var, mean_abs)}."""
     c = build_circuit(n, L, n_inputs=n, encoding="angle", ansatz=ansatz)
     if chunk is None:
         # батч подбирается так, чтобы состояние занимало ~256 МБ (2^25 амплитуд)
         chunk = max(1, min(1024, 2 ** 25 // 2 ** n))
     k = n if param_idx is None else param_idx  # первый обучаемый вес (после кодирования)
-    grads = []
+    g_loc, g_glob = [], []
     for i in range(0, samples, chunk):
         b = min(chunk, samples - i)
         a = sample_angles(c, b, init, scale, device)
         plus, minus = a.clone(), a.clone()
         plus[:, k] += math.pi / 2
         minus[:, k] -= math.pi / 2
-        grads.append((cost(c, plus, kind) - cost(c, minus, kind)) / 2)
-    g = torch.cat(grads)
-    return g.var().item(), g.abs().mean().item()
+        lp, gp = costs(c, plus)
+        lm, gm = costs(c, minus)
+        g_loc.append((lp - lm) / 2)
+        g_glob.append((gp - gm) / 2)
+    out = {}
+    for name, g in (("local", torch.cat(g_loc)), ("global", torch.cat(g_glob))):
+        out[name] = (g.var().item(), g.abs().mean().item())
+    return out
 
 
 def main():
+    import sys
+    sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--qubits", type=int, nargs="+", default=[2, 4, 6, 8, 10, 12])
     ap.add_argument("--layers", type=int, nargs="+", default=[1, 5, 20])
@@ -77,21 +91,30 @@ def main():
     ap.add_argument("--init-scale", type=float, default=0.1)
     ap.add_argument("--out", default=str(ROOT / "results" / "barren.csv"))
     a = ap.parse_args()
-    rows = []
-    for init in a.inits:
-        for kind in ("local", "global"):
-            for L in a.layers:
-                for n in a.qubits:
-                    t0 = time.time()
-                    var, mean_abs = grad_variance(n, L, kind, a.samples, a.ansatz, a.device,
-                                                  init=init, scale=a.init_scale)
-                    rows.append(dict(init=init, cost=kind, n_layers=L, n_qubits=n,
-                                     ansatz=a.ansatz, grad_var=var, grad_mean_abs=mean_abs,
-                                     samples=a.samples))
-                    print(f"{init:>7} {kind:>6} L={L:<3} n={n:<3} Var={var:.3e}  "
-                          f"({time.time() - t0:.1f} с)", flush=True)
-    pd.DataFrame(rows).to_csv(a.out, index=False)
-    print("->", a.out)
+
+    out = Path(a.out)
+    done = set()
+    if out.exists():
+        prev = pd.read_csv(out)
+        if "init" not in prev:
+            prev["init"] = "uniform"
+        done = {(r.init, r.n_layers, r.n_qubits) for r in prev.itertuples()}
+    # сначала все стратегии на малом числе кубитов, затем больше — графики растут равномерно
+    for L in a.layers:
+        for n in a.qubits:
+            for init in a.inits:
+                if (init, L, n) in done:
+                    continue
+                t0 = time.time()
+                res = grad_variance(n, L, a.samples, a.ansatz, a.device,
+                                    init=init, scale=a.init_scale)
+                rows = [dict(init=init, cost=cost, n_layers=L, n_qubits=n, ansatz=a.ansatz,
+                             grad_var=v, grad_mean_abs=m, samples=a.samples)
+                        for cost, (v, m) in res.items()]
+                pd.DataFrame(rows).to_csv(out, mode="a", header=not out.exists(), index=False)
+                print(f"{init:>7} L={L:<3} n={n:<3} Var local={res['local'][0]:.3e} "
+                      f"global={res['global'][0]:.3e}  ({time.time() - t0:.1f} с)", flush=True)
+    print("->", out)
 
 
 if __name__ == "__main__":

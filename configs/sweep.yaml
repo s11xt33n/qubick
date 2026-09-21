@@ -7,6 +7,7 @@ grid:
   n_qubits: [2, 4, 6, 8, 10, 12]
   n_layers: [1, 2, 4]
 fixed:
+  enc: pi2
   encoding: angle
   ansatz: strong
   epochs: 300
