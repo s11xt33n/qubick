@@ -256,3 +256,7 @@ nav a.active { color: var(--ink); background: var(--code-bg); font-weight: 600; 
 .page > section:first-child, main.page > section:first-child { padding-top: 32px; }
 .live-dot.off { background: var(--muted); }
 #srv-totals { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+table.data.left td, table.data.left th { text-align: left; vertical-align: top; }
+.refs { padding-left: 22px; margin: 0; columns: 1; }
+.refs li { margin: 6px 0; color: var(--ink-2); font-size: 14px; }
+.downloads li { font-size: 14px; }

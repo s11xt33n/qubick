@@ -7,7 +7,7 @@
 <meta name="description" content="qhnn: библиотека на PyTorch и исследование гибридных квантово-классических нейронных сетей. Интерактивные результаты экспериментов.">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%232a78d6' stroke-width='3'/><circle cx='16' cy='16' r='4' fill='%23e87ba4'/></svg>">
-<link rel="stylesheet" href="style.css?v=1790033107">
+<link rel="stylesheet" href="style.css?v=1790033837">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 </head>
 <body>
@@ -19,6 +19,7 @@
       <a href="#/library" data-page="library">Библиотека</a>
       <a href="#/results" data-page="results">Результаты</a>
       <a href="#/encoder" data-page="encoder">Находка</a>
+      <a href="#/data" data-page="data">Данные и методы</a>
       <a href="#/roadmap" data-page="roadmap">План</a>
       <a href="#/live" data-page="live">Сервер</a>
       <a href="#/gallery" data-page="gallery">Графики</a>
@@ -341,6 +342,118 @@ loss.backward()   # градиент проходит через квантов�
 
 </main>
 
+<!-- ============================================================ ДАННЫЕ И МЕТОДЫ -->
+<main class="page" id="page-data">
+<section id="data">
+  <div class="section-head"><span class="eyebrow">Прозрачность</span><h2>Данные и методы</h2>
+    <p class="lead">Все наборы данных открытые, все цифры на сайте воспроизводимы: ниже — источники данных, полный
+      протокол экспериментов, версии программ, сырые результаты для скачивания и список литературы.</p></div>
+
+  <div class="card">
+    <h3>Наборы данных</h3>
+    <div class="table-wrap"><table class="data left">
+      <thead><tr><th>Набор</th><th>Задача</th><th>Объём в экспериментах</th><th>Источник</th><th>Статья</th></tr></thead>
+      <tbody>
+        <tr><td><b>Iris</b></td><td>3 вида ирисов, 4 признака</td><td>150 объектов</td>
+          <td><a href="https://archive.ics.uci.edu/dataset/53/iris" target="_blank" rel="noopener">UCI ML Repository</a></td>
+          <td><a href="https://doi.org/10.1111/j.1469-1809.1936.tb02137.x" target="_blank" rel="noopener">Fisher, 1936</a></td></tr>
+        <tr><td><b>Wine</b></td><td>3 сорта вина, 13 химических признаков</td><td>178 объектов</td>
+          <td><a href="https://archive.ics.uci.edu/dataset/109/wine" target="_blank" rel="noopener">UCI ML Repository</a></td><td>—</td></tr>
+        <tr><td><b>Breast Cancer Wisconsin</b></td><td>доброкачественная / злокачественная опухоль, 30 признаков</td><td>569 объектов</td>
+          <td><a href="https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic" target="_blank" rel="noopener">UCI ML Repository</a></td><td>—</td></tr>
+        <tr><td><b>Moons</b></td><td>синтетические «полумесяцы», 2 класса</td><td>400 точек, шум 0.25</td>
+          <td><a href="https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_moons.html" target="_blank" rel="noopener">scikit-learn make_moons</a></td><td>—</td></tr>
+        <tr><td><b>Circles</b></td><td>синтетические концентрические кольца, 2 класса</td><td>400 точек, шум 0.1</td>
+          <td><a href="https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_circles.html" target="_blank" rel="noopener">scikit-learn make_circles</a></td><td>—</td></tr>
+        <tr><td><b>MNIST</b></td><td>рукописные цифры, 10 классов</td><td>10 000 обучение / 2 000 тест (случайная подвыборка)</td>
+          <td><a href="https://pytorch.org/vision/stable/generated/torchvision.datasets.MNIST.html" target="_blank" rel="noopener">torchvision</a></td>
+          <td><a href="https://doi.org/10.1109/5.726791" target="_blank" rel="noopener">LeCun et al., 1998</a></td></tr>
+        <tr><td><b>Fashion-MNIST</b></td><td>предметы одежды, 10 классов</td><td>10 000 / 2 000</td>
+          <td><a href="https://github.com/zalandoresearch/fashion-mnist" target="_blank" rel="noopener">Zalando Research</a></td>
+          <td><a href="https://arxiv.org/abs/1708.07747" target="_blank" rel="noopener">Xiao et al., 2017</a></td></tr>
+        <tr><td><b>PneumoniaMNIST</b></td><td>рентген грудной клетки: пневмония / норма</td><td>4 708 / 624 (целиком)</td>
+          <td><a href="https://medmnist.com/" target="_blank" rel="noopener">MedMNIST v2</a></td>
+          <td><a href="https://arxiv.org/abs/2110.14795" target="_blank" rel="noopener">Yang et al., 2023</a>; снимки —
+            <a href="https://doi.org/10.1016/j.cell.2018.02.010" target="_blank" rel="noopener">Kermany et al., 2018</a></td></tr>
+        <tr><td><b>BreastMNIST</b></td><td>УЗИ молочной железы: доброкачественное / злокачественное</td><td>546 / 156 (целиком)</td>
+          <td><a href="https://medmnist.com/" target="_blank" rel="noopener">MedMNIST v2</a></td>
+          <td><a href="https://arxiv.org/abs/2110.14795" target="_blank" rel="noopener">Yang et al., 2023</a>; снимки —
+            <a href="https://doi.org/10.1016/j.dib.2019.104863" target="_blank" rel="noopener">Al-Dhabyani et al., 2020</a></td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Признаки изображений извлекаются замороженной сетью ResNet18 с весами ImageNet
+      (<a href="https://pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html" target="_blank" rel="noopener">torchvision</a>,
+      <a href="https://arxiv.org/abs/1512.03385" target="_blank" rel="noopener">He et al., 2016</a>): изображение 224×224 → вектор из 512 признаков.
+      Все наборы загружаются автоматически официальными загрузчиками библиотек.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card prose">
+      <h3>Протокол экспериментов</h3>
+      <ul class="findings">
+        <li><b>Разбиение.</b> Табличные данные — стратифицированно 60 / 20 / 20 % (обучение / валидация / тест). Изображения —
+          фиксированный тест, из обучающей части берётся стратифицированная подвыборка нужного размера (50–2000), 20 % её идёт на валидацию.</li>
+        <li><b>Предобработка.</b> StandardScaler, обученный только на обучающей выборке. Для чистой квантовой модели признаки
+          сжимаются PCA до числа кубитов (тоже только по обучающей выборке) — без утечки информации из теста.</li>
+        <li><b>Повторы.</b> 10 seed на каждую конфигурацию (0–9); seed задаёт и разбиение данных, и инициализацию модели.</li>
+        <li><b>Обучение.</b> Adam, lr = 0.01, батч 32 (64 для 12 кубитов), кросс-энтропия, до 300 эпох (150 для изображений)
+          с ранней остановкой по loss на валидации (терпение 30 / 20 эпох) и возвратом лучших весов.</li>
+        <li><b>Метрики.</b> Accuracy и macro-F1 на тесте; доля предсказываемых классов (выявляет «схлопывание» модели в один класс).</li>
+        <li><b>Честное сравнение.</b> MLP с тем же числом параметров, что у гибрида, и bottleneck-модель — гибрид без квантовой части.</li>
+        <li><b>Статистика.</b> Парный тест Уилкоксона по seed (гибрид против каждой модели), уровень значимости 0.05.</li>
+      </ul>
+    </div>
+    <div class="card prose">
+      <h3>Программы и оборудование</h3>
+      <ul class="findings">
+        <li>Python 3.12, PyTorch 2.14 (CUDA 12.6), scikit-learn 1.9, NumPy 2.5, pandas 3.0.</li>
+        <li>PennyLane 0.45 — только как эталон для проверки корректности собственного симулятора (158 автотестов).</li>
+        <li>Сервер: 2 × Intel Xeon E5-2698 v4 (80 потоков), 64 ГБ RAM, NVIDIA Tesla V100-SXM2 16 ГБ, Windows 11.</li>
+        <li>Каждая конфигурация эксперимента задана YAML-файлом; идентификатор запуска — хеш всех его параметров.</li>
+      </ul>
+      <h3 style="margin-top:18px">Сырые результаты</h3>
+      <p>Всё, из чего строятся графики, — в открытом виде (средние, разбросы, число запусков, тесты значимости):</p>
+      <ul class="findings downloads">
+        <li><a href="data/tabular.json" download>tabular.json</a> — табличные данные</li>
+        <li><a href="data/vision.json" download>vision.json</a> — изображения, 4 и 8 кубитов</li>
+        <li><a href="data/vision_q12.json" download>vision_q12.json</a> — изображения, 12 кубитов</li>
+        <li><a href="data/sweep.json" download>sweep.json</a> — кубиты × глубина</li>
+        <li><a href="data/ablation.json" download>ablation.json</a> — абляция схемы</li>
+        <li><a href="data/shots.json" download>shots.json</a> — конечное число измерений</li>
+        <li><a href="data/init.json" download>init.json</a> · <a href="data/barren_init.json" download>barren_init.json</a> · <a href="data/barren.json" download>barren.json</a> — инициализация и barren plateaus</li>
+        <li><a href="data/encoder.json" download>encoder.json</a> — варианты encoder'а</li>
+        <li><a href="data/speed.json" download>speed.json</a> · <a href="data/server.json" download>server.json</a> — скорость и журнал сервера</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Литература</h3>
+    <ol class="refs">
+      <li>Preskill J. Quantum computing in the NISQ era and beyond // Quantum. 2018. Vol. 2. P. 79. <a href="https://arxiv.org/abs/1801.00862" target="_blank" rel="noopener">arXiv:1801.00862</a></li>
+      <li>Mari A., Bromley T. R., Izaac J., Schuld M., Killoran N. Transfer learning in hybrid classical-quantum neural networks // Quantum. 2020. Vol. 4. P. 340. <a href="https://arxiv.org/abs/1912.08278" target="_blank" rel="noopener">arXiv:1912.08278</a></li>
+      <li>McClean J. R. et al. Barren plateaus in quantum neural network training landscapes // Nature Communications. 2018. Vol. 9. P. 4812. <a href="https://arxiv.org/abs/1803.11173" target="_blank" rel="noopener">arXiv:1803.11173</a></li>
+      <li>Cerezo M. et al. Cost function dependent barren plateaus in shallow parametrized quantum circuits // Nature Communications. 2021. Vol. 12. P. 1791. <a href="https://arxiv.org/abs/2001.00550" target="_blank" rel="noopener">arXiv:2001.00550</a></li>
+      <li>Grant E. et al. An initialization strategy for addressing barren plateaus in parametrized quantum circuits // Quantum. 2019. Vol. 3. P. 214. <a href="https://arxiv.org/abs/1903.05076" target="_blank" rel="noopener">arXiv:1903.05076</a></li>
+      <li>Pérez-Salinas A. et al. Data re-uploading for a universal quantum classifier // Quantum. 2020. Vol. 4. P. 226. <a href="https://arxiv.org/abs/1907.02085" target="_blank" rel="noopener">arXiv:1907.02085</a></li>
+      <li>Schuld M. et al. Evaluating analytic gradients on quantum hardware // Physical Review A. 2019. Vol. 99. 032331. <a href="https://arxiv.org/abs/1811.11184" target="_blank" rel="noopener">arXiv:1811.11184</a></li>
+      <li>Bergholm V. et al. PennyLane: Automatic differentiation of hybrid quantum-classical computations. 2018. <a href="https://arxiv.org/abs/1811.04968" target="_blank" rel="noopener">arXiv:1811.04968</a></li>
+      <li>Paszke A. et al. PyTorch: An imperative style, high-performance deep learning library // NeurIPS. 2019. <a href="https://arxiv.org/abs/1912.01703" target="_blank" rel="noopener">arXiv:1912.01703</a></li>
+      <li>He K. et al. Deep residual learning for image recognition // CVPR. 2016. <a href="https://arxiv.org/abs/1512.03385" target="_blank" rel="noopener">arXiv:1512.03385</a></li>
+      <li>Kingma D. P., Ba J. Adam: A method for stochastic optimization // ICLR. 2015. <a href="https://arxiv.org/abs/1412.6980" target="_blank" rel="noopener">arXiv:1412.6980</a></li>
+      <li>Ioffe S., Szegedy C. Batch normalization // ICML. 2015. <a href="https://arxiv.org/abs/1502.03167" target="_blank" rel="noopener">arXiv:1502.03167</a></li>
+      <li>Yang J. et al. MedMNIST v2 — a large-scale lightweight benchmark for 2D and 3D biomedical image classification // Scientific Data. 2023. <a href="https://arxiv.org/abs/2110.14795" target="_blank" rel="noopener">arXiv:2110.14795</a></li>
+      <li>Kermany D. S. et al. Identifying medical diagnoses and treatable diseases by image-based deep learning // Cell. 2018. Vol. 172, № 5. <a href="https://doi.org/10.1016/j.cell.2018.02.010" target="_blank" rel="noopener">doi:10.1016/j.cell.2018.02.010</a></li>
+      <li>Al-Dhabyani W. et al. Dataset of breast ultrasound images // Data in Brief. 2020. Vol. 28. 104863. <a href="https://doi.org/10.1016/j.dib.2019.104863" target="_blank" rel="noopener">doi:10.1016/j.dib.2019.104863</a></li>
+      <li>LeCun Y. et al. Gradient-based learning applied to document recognition // Proceedings of the IEEE. 1998. Vol. 86, № 11. <a href="https://doi.org/10.1109/5.726791" target="_blank" rel="noopener">doi:10.1109/5.726791</a></li>
+      <li>Xiao H., Rasul K., Vollgraf R. Fashion-MNIST: a novel image dataset for benchmarking machine learning algorithms. 2017. <a href="https://arxiv.org/abs/1708.07747" target="_blank" rel="noopener">arXiv:1708.07747</a></li>
+      <li>Fisher R. A. The use of multiple measurements in taxonomic problems // Annals of Eugenics. 1936. Vol. 7, № 2. <a href="https://doi.org/10.1111/j.1469-1809.1936.tb02137.x" target="_blank" rel="noopener">doi:10.1111/j.1469-1809.1936.tb02137.x</a></li>
+      <li>Wilcoxon F. Individual comparisons by ranking methods // Biometrics Bulletin. 1945. Vol. 1, № 6. P. 80–83.</li>
+    </ol>
+  </div>
+</section>
+</main>
+
 <!-- ============================================================ ПЛАН -->
 <main class="page" id="page-roadmap">
 <section id="roadmap">
@@ -408,6 +521,6 @@ loss.backward()   # градиент проходит через квантов�
   <div><b>QHNN</b> · Quantum Hybrid Neural Networks · гибридные квантово-классические нейронные сети</div>
   <div>Филадельфов Т. Г. · КФУ, ИВМиИТ · <span id="updated"></span></div>
 </footer>
-<script src="app.js?v=1790033107"></script>
+<script src="app.js?v=1790033837"></script>
 </body>
 </html>

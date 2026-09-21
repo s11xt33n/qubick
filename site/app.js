@@ -750,7 +750,7 @@ function renderServer() {
 }
 
 // ---------------------------------------------------------------- вкладки (#/страница/эксперимент)
-const PAGES = ["home", "library", "results", "encoder", "roadmap", "live", "gallery"];
+const PAGES = ["home", "library", "results", "encoder", "data", "roadmap", "live", "gallery"];
 const EXPS = ["tabular", "vision", "q12", "sweep", "ablation", "shots", "barren", "init", "speed"];
 function route() {
   const parts = location.hash.replace(/^#\/?/, "").split("/");
