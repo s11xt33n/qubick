@@ -660,11 +660,27 @@ function renderGallery() {
   if (!g) return;
   g.textContent = "";
   if (!f || !f.length) { const p = document.createElement("p"); p.className = "note"; p.textContent = "Рисунки появятся после первого прогона анализа."; g.appendChild(p); return; }
+  const prog = (data.progress && data.progress.series) || {};
+  const when = (t) => { const d = new Date(t * 1000); return d.toLocaleString("ru", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
   f.forEach((it) => {
-    const a = document.createElement("a"); a.href = `figures/${it.file}`; a.target = "_blank"; a.rel = "noopener";
+    const a = document.createElement("a"); a.href = `figures/${it.file}?t=${it.mtime || ""}`; a.target = "_blank"; a.rel = "noopener";
     const img = document.createElement("img"); img.loading = "lazy"; img.src = `figures/${it.file}?t=${it.mtime || ""}`; img.alt = it.title;
-    const s = document.createElement("span"); s.textContent = it.title;
-    a.append(img, s); g.appendChild(a);
+    const s = document.createElement("span"); s.className = "g-title"; s.textContent = it.title;
+    const m = document.createElement("span"); m.className = "g-meta";
+    const pr = it.series && prog[it.series];
+    let status = "", cls = "";
+    if (pr && pr.total) {
+      const done = pr.done >= pr.total;
+      status = done ? "финальный" : "промежуточный";
+      cls = done ? "final" : "partial";
+      m.textContent = `построен ${when(it.mtime)} · по ${pr.done.toLocaleString("ru")} из ${pr.total.toLocaleString("ru")} запусков (${Math.floor(100 * pr.done / pr.total)}%)`;
+    } else {
+      status = "расчёт на GPU";
+      cls = "partial";
+      m.textContent = `построен ${when(it.mtime)}`;
+    }
+    const b = document.createElement("span"); b.className = `g-badge ${cls}`; b.textContent = status;
+    a.append(img, s, m, b); g.appendChild(a);
   });
 }
 
@@ -734,7 +750,9 @@ function renderServer() {
     const b1 = document.createElement("div"); b1.className = "label"; b1.textContent = l;
     e.append(a1, b1); k.appendChild(e);
   });
-  const hs = d.history || [];
+  const period = (document.querySelector("#hist-period .active") || {}).dataset?.min || "all";
+  const all = d.history || [];
+  const hs = period === "all" ? all : all.slice(-Number(period));
   const xs = hs.map((r) => r.t);
   const axisX = { ...base().xAxis, type: "category", data: xs, boundaryGap: false,
     axisLabel: { color: css("--muted"), fontSize: 11, interval: Math.max(0, Math.floor(xs.length / 8)) } };
@@ -765,6 +783,11 @@ function renderServer() {
     series: [{ type: "bar", barMaxWidth: 16, data: keys.map((x) => per[x]), itemStyle: { color: css("--accent"), borderRadius: [0, 4, 4, 0] },
       label: { show: true, position: "right", color: css("--ink-2"), fontSize: 11, formatter: (q) => q.value.toLocaleString("ru") } }] }), true);
 }
+
+document.querySelectorAll("#hist-period button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("#hist-period button").forEach((x) => x.classList.toggle("active", x === b));
+  renderServer();
+}));
 
 // ---------------------------------------------------------------- вкладки (#/страница/эксперимент)
 const PAGES = ["home", "library", "results", "encoder", "data", "roadmap", "live", "gallery"];

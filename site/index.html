@@ -7,7 +7,7 @@
 <meta name="description" content="qhnn: библиотека на PyTorch и исследование гибридных квантово-классических нейронных сетей. Интерактивные результаты экспериментов.">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%232a78d6' stroke-width='3'/><circle cx='16' cy='16' r='4' fill='%23e87ba4'/></svg>">
-<link rel="stylesheet" href="style.css?v=1790033942">
+<link rel="stylesheet" href="style.css?v=1790034038">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 </head>
 <body>
@@ -487,10 +487,14 @@ loss.backward()   # градиент проходит через квантов�
     <h3>Итоги вычислительной кампании</h3>
     <div class="kpis" id="srv-totals"></div>
   </div>
-  <div class="card"><h4>Нагрузка за весь прогон: CPU и Tesla V100, %</h4><div class="chart" id="ch-hist-load"></div></div>
+  <div class="seg" id="hist-period" role="group" aria-label="Период">
+    <span>Период:</span>
+    <button data-min="60">1 час</button><button data-min="360">6 часов</button><button data-min="all" class="active">Весь прогон</button>
+  </div>
+  <div class="card"><h4>Нагрузка: CPU и Tesla V100, %</h4><div class="chart" id="ch-hist-load"></div></div>
   <div class="grid2">
-    <div class="card"><h4>Температура V100 за весь прогон, °C</h4><div class="chart small" id="ch-hist-temp"></div></div>
-    <div class="card"><h4>Мощность V100 за весь прогон, Вт</h4><div class="chart small" id="ch-hist-power"></div></div>
+    <div class="card"><h4>Температура V100, °C</h4><div class="chart small" id="ch-hist-temp"></div></div>
+    <div class="card"><h4>Мощность V100, Вт</h4><div class="chart small" id="ch-hist-power"></div></div>
   </div>
   <div class="card"><h4>Обучено моделей по сериям</h4><div class="chart small" id="ch-hist-series"></div></div>
   <h3 style="margin-top:28px">Сейчас</h3>
@@ -512,7 +516,9 @@ loss.backward()   # градиент проходит через квантов�
 <main class="page" id="page-gallery">
 <section id="gallery">
   <div class="section-head"><span class="eyebrow">Для отчёта</span><h2>Все графики</h2>
-    <p class="lead">Статические версии графиков в высоком разрешении — для отчётов и презентаций. Нажмите, чтобы открыть или скачать.</p></div>
+    <p class="lead">Статические версии графиков в высоком разрешении — для отчётов и презентаций. Нажмите, чтобы открыть или скачать.</p>
+    <p class="note">Это не графики «за период»: каждый построен по всем запускам эксперимента, завершённым к моменту построения.
+      Пока идут расчёты, рисунки перестраиваются каждые 10 минут и помечены как промежуточные; после завершения серии — финальные.</p></div>
   <div class="gallery" id="gallery-grid"></div>
 </section>
 </main>
@@ -521,6 +527,6 @@ loss.backward()   # градиент проходит через квантов�
   <div><b>QHNN</b> · Quantum Hybrid Neural Networks · гибридные квантово-классические нейронные сети</div>
   <div>Филадельфов Т. Г. · КФУ, ИВМиИТ · <span id="updated"></span></div>
 </footer>
-<script src="app.js?v=1790033942"></script>
+<script src="app.js?v=1790034038"></script>
 </body>
 </html>

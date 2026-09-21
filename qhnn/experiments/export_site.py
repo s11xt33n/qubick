@@ -258,6 +258,13 @@ FIG_TITLES = {
 }
 
 
+FIG_SERIES = {
+    "tabular_accuracy": "tabular", "tabular_curves": "tabular", "vision_lowdata_q4": "vision",
+    "vision_lowdata_q8": "vision", "vision_q12": "vision_q12", "sweep_heatmap": "sweep", "sweep_time": "sweep",
+    "ablation": "ablation", "shots": "shots", "init": "init", "encoder": "vision",
+}
+
+
 def figures(site_dir: Path):
     """Копирует PNG из results/figures в site/figures и возвращает их список."""
     import shutil
@@ -269,7 +276,8 @@ def figures(site_dir: Path):
         f = src / f"{key}.png"
         if f.exists():
             shutil.copy2(f, dst / f.name)
-            items.append({"file": f.name, "title": title, "mtime": int(f.stat().st_mtime)})
+            items.append({"file": f.name, "title": title, "mtime": int(f.stat().st_mtime),
+                          "series": FIG_SERIES.get(key)})
     return items or None
 
 

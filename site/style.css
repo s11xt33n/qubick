@@ -306,3 +306,15 @@ nav#tabs::-webkit-scrollbar { display: none; }
   .timeline { padding-left: 22px; }
   footer { flex-direction: column; }
 }
+.gallery a { position: relative; }
+.gallery .g-title { padding: 8px 12px 2px; color: var(--ink); font-size: 13.5px; }
+.gallery .g-meta { padding: 0 12px 10px; font-size: 12px; color: var(--muted); }
+.g-badge { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--ink-2); }
+.g-badge.final { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
+.g-badge.partial { color: var(--muted); border-style: dashed; }
+.seg { display: flex; align-items: center; gap: 6px; margin: 16px 0 0; flex-wrap: wrap; }
+.seg span { font-size: 13px; color: var(--ink-2); margin-right: 4px; }
+.seg button { font: inherit; font-size: 13px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.seg button.active { color: var(--ink); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 600; }
