@@ -181,7 +181,7 @@ async function load(name) {
 
 async function loadAll() {
   const names = ["progress", "tabular", "vision", "sweep", "ablation", "shots", "barren", "speed",
-    "vision_q12", "init", "barren_init", "encoder", "figures"];
+    "vision_q12", "init", "barren_init", "encoder", "figures", "server"];
   const res = await Promise.all(names.map(load));
   names.forEach((n, i) => { if (res[i]) data[n] = res[i]; });
   renderAll();
@@ -190,7 +190,7 @@ async function loadAll() {
 function renderAll() {
   const steps = [renderModels, renderProgress, renderOverview, renderTabular, renderVision,
     renderSweep, renderAblation, renderShots, renderBarren, renderSpeed, renderQ12, renderInit,
-    renderEncoder, renderGallery, renderEncSwitch];
+    renderEncoder, renderGallery, renderEncSwitch, renderServer];
   steps.forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
 
@@ -685,6 +685,69 @@ $("enc").addEventListener("change", (e) => { ENC = e.target.value; try { localSt
 ["sw-ds", "sw-model"].forEach((id) => $(id).addEventListener("change", renderSweep));
 $("ab-ds").addEventListener("change", renderAblation);
 
+
+// ---------------------------------------------------------------- сервер: итоги и история
+function renderServer() {
+  const d = data.server, p = data.progress;
+  // «живой» ли сервер: данные свежее 10 минут
+  const fresh = p && p.updated && (Date.now() - new Date(p.updated.replace(" ", "T")).getTime()) < 10 * 60 * 1000;
+  const st = $("live-state");
+  if (st) st.textContent = fresh ? "Идут расчёты — графики «Сейчас» обновляются автоматически."
+    : `Расчёты завершены${d && d.totals && d.totals.end ? " " + d.totals.end : ""}. Сервер выключен — ниже итоговая статистика прогона.`;
+  const eb = $("live-eyebrow");
+  if (eb) eb.lastChild.textContent = fresh ? "В реальном времени" : "Прогон завершён";
+  eb?.querySelector(".live-dot")?.classList.toggle("off", !fresh);
+  if (!d || !d.totals) return;
+  const t = d.totals;
+  const tiles = [
+    [(t.runs || 0).toLocaleString("ru"), "обученных моделей"],
+    [(t.barren_points || 0).toLocaleString("ru"), "точек barren plateaus (до 20 кубитов)"],
+    [t.train_core_hours != null ? `${Math.round(t.train_core_hours).toLocaleString("ru")} ч` : "—", "процессорного времени на обучение"],
+    [t.wall_hours != null ? `${t.wall_hours.toFixed(1)} ч` : "—", "длительность прогона"],
+    [t.cpu_avg != null ? `${Math.round(t.cpu_avg)}%` : "—", "средняя загрузка CPU"],
+    [t.gpu_util_avg != null ? `${Math.round(t.gpu_util_avg)}%` : "—", "средняя загрузка V100"],
+    [t.gpu_temp_max != null ? `${t.gpu_temp_max} °C` : "—", "пиковая температура V100"],
+    [t.gpu_energy_kwh != null ? `${t.gpu_energy_kwh} кВт·ч` : "—", "энергия V100"],
+  ];
+  const k = $("srv-totals");
+  k.textContent = "";
+  tiles.forEach(([v, l]) => {
+    const e = document.createElement("div"); e.className = "kpi";
+    const a1 = document.createElement("div"); a1.className = "value"; a1.textContent = v;
+    const b1 = document.createElement("div"); b1.className = "label"; b1.textContent = l;
+    e.append(a1, b1); k.appendChild(e);
+  });
+  const hs = d.history || [];
+  const xs = hs.map((r) => r.t);
+  const axisX = { ...base().xAxis, type: "category", data: xs, boundaryGap: false,
+    axisLabel: { color: css("--muted"), fontSize: 11, interval: Math.max(0, Math.floor(xs.length / 8)) } };
+  const tip = (unit) => ({ ...base().tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: css("--muted"), width: 1 } },
+    formatter: (ps) => `${ps[0].axisValue}<br>` + ps.map((q) => tipRow(q.color, q.value == null ? "—" : `${q.value}${unit}`, q.seriesName)).join("") });
+  const line = (name, key, col) => ({ name, type: "line", showSymbol: false, data: hs.map((r) => r[key]),
+    lineStyle: { width: 2, color: col }, itemStyle: { color: col } });
+  let c = chart("ch-hist-load");
+  if (c) c.setOption(base({ tooltip: tip("%"), grid: { left: 44, right: 16, top: 40, bottom: 30 }, xAxis: axisX,
+    yAxis: { ...base().yAxis, type: "value", min: 0, max: 100 },
+    series: [line("CPU (80 потоков)", "cpu_load", css("--s1")), line("Tesla V100", "gpu_util", css("--s2"))] }), true);
+  c = chart("ch-hist-temp");
+  if (c) c.setOption(base({ legend: { show: false }, tooltip: tip(" °C"), grid: { left: 40, right: 12, top: 12, bottom: 28 }, xAxis: axisX,
+    yAxis: { ...base().yAxis, type: "value", scale: true },
+    series: [{ ...line("Температура", "gpu_temp", css("--s8")), areaStyle: { color: css("--s8"), opacity: 0.08 } }] }), true);
+  c = chart("ch-hist-power");
+  if (c) c.setOption(base({ legend: { show: false }, tooltip: tip(" Вт"), grid: { left: 40, right: 12, top: 12, bottom: 28 }, xAxis: axisX,
+    yAxis: { ...base().yAxis, type: "value", min: 0, max: 300 },
+    series: [{ ...line("Мощность", "gpu_power", css("--s2")), areaStyle: { color: css("--s2"), opacity: 0.08 } }] }), true);
+  const per = t.per_series || {};
+  const keys = Object.keys(per).filter((x) => per[x] > 0).sort((x, y) => per[y] - per[x]);
+  c = chart("ch-hist-series");
+  if (c) c.setOption(base({ legend: { show: false }, grid: { left: 130, right: 40, top: 10, bottom: 24 },
+    tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: css("--grid"), opacity: 0.35 } },
+      formatter: (ps) => tipRow(css("--accent"), ps[0].value.toLocaleString("ru"), ps[0].axisValue) },
+    xAxis: { ...base().yAxis, type: "value" },
+    yAxis: { ...base().xAxis, type: "category", data: keys.map((x) => SERIES_LABEL[x] || x), inverse: true },
+    series: [{ type: "bar", barMaxWidth: 16, data: keys.map((x) => per[x]), itemStyle: { color: css("--accent"), borderRadius: [0, 4, 4, 0] },
+      label: { show: true, position: "right", color: css("--ink-2"), fontSize: 11, formatter: (q) => q.value.toLocaleString("ru") } }] }), true);
+}
 
 // ---------------------------------------------------------------- вкладки (#/страница/эксперимент)
 const PAGES = ["home", "library", "results", "encoder", "roadmap", "live", "gallery"];

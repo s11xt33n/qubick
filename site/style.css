@@ -254,3 +254,5 @@ nav a.active { color: var(--ink); background: var(--code-bg); font-weight: 600; 
 .exp-nav a.active { color: var(--ink); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); font-weight: 600; }
 .exp-nav a.active b { background: var(--accent); color: #fff; }
 .page > section:first-child, main.page > section:first-child { padding-top: 32px; }
+.live-dot.off { background: var(--muted); }
+#srv-totals { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }

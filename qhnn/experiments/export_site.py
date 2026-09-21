@@ -167,6 +167,74 @@ def encoder():
     return {"summary": _records(pd.concat(rows))} if rows else None
 
 
+def _monitor_frame():
+    """Журнал нагрузки (results/monitor.csv и архивные копии) с полными временными метками."""
+    frames = []
+    for f in [RES / "old_logs" / "monitor.csv", RES / "monitor.csv"]:
+        if f.exists():
+            try:
+                frames.append(pd.read_csv(f, encoding="utf-8-sig", on_bad_lines="skip"))
+            except Exception:
+                pass
+    if not frames:
+        return None
+    m = pd.concat(frames, ignore_index=True)
+    day = time.strftime("%Y-%m-%d", time.localtime((RES / "monitor.csv").stat().st_mtime)) \
+        if (RES / "monitor.csv").exists() else time.strftime("%Y-%m-%d")
+    full = m["time"].astype(str).str.len() > 8
+    day0 = m.loc[full, "time"].astype(str).str[:10].min() if full.any() else day
+    m["ts"] = pd.to_datetime(m["time"].where(full, day0 + " " + m["time"].astype(str)), errors="coerce")
+    for c in ("gpu_temp", "gpu_util", "gpu_power", "gpu_mem", "cpu_load", "python_procs"):
+        m[c] = pd.to_numeric(m.get(c), errors="coerce")
+    return m.dropna(subset=["ts"]).sort_values("ts").drop_duplicates("ts")
+
+
+def server():
+    """История нагрузки за весь прогон (средние по минутам) и итоговые цифры."""
+    m = _monitor_frame()
+    out = {"updated": time.strftime("%Y-%m-%d %H:%M:%S")}
+    if m is not None and len(m):
+        h = m.set_index("ts")[["cpu_load", "gpu_util", "gpu_temp", "gpu_power", "gpu_mem", "python_procs"]]
+        h = h.resample("1min").mean().dropna(how="all").round(1)
+        out["history"] = [{"t": t.strftime("%d.%m %H:%M"), **{k: (None if pd.isna(v) else float(v)) for k, v in r.items()}}
+                          for t, r in h.iterrows()]
+        hours = (m.ts.max() - m.ts.min()).total_seconds() / 3600
+        out["totals"] = {
+            "start": m.ts.min().strftime("%d.%m.%Y %H:%M"), "end": m.ts.max().strftime("%d.%m.%Y %H:%M"),
+            "wall_hours": round(hours, 2),
+            "cpu_avg": round(float(m.cpu_load.mean()), 1), "gpu_util_avg": round(float(m.gpu_util.mean()), 1),
+            "gpu_temp_max": float(m.gpu_temp.max()), "gpu_power_avg": round(float(m.gpu_power.mean()), 1),
+            "gpu_power_max": float(m.gpu_power.max()),
+            "gpu_energy_kwh": round(float(m.gpu_power.mean()) * hours / 1000, 2),
+            "procs_max": int(m.python_procs.max()),
+        }
+    runs, core_h, gpu_runs = 0, 0.0, 0
+    per = {}
+    for name in SERIES:
+        parts = [f for f in RES.glob(f"{name}*.jsonl") if "_history" not in f.name]
+        n = 0
+        for f in parts:
+            try:
+                d = pd.read_json(f, lines=True)
+            except Exception:
+                continue
+            n += len(d)
+            core_h += float(d.get("train_time", pd.Series(dtype=float)).sum()) / 3600
+            if ".gpu" in f.name:
+                gpu_runs += len(d)
+        per[name] = n
+        runs += n
+    barren_pts = 0
+    for f in RES.glob("barren*.csv"):
+        try:
+            barren_pts += len(pd.read_csv(f))
+        except Exception:
+            pass
+    out.setdefault("totals", {}).update({"runs": runs, "train_core_hours": round(core_h, 1),
+                                         "gpu_runs": gpu_runs, "barren_points": barren_pts, "per_series": per})
+    return out
+
+
 def csv_records(name):
     p = RES / f"{name}.csv"
     return _records(pd.read_csv(p)) if p.exists() else None
@@ -215,7 +283,8 @@ def main():
              "ablation": ablation(), "shots": shots(), "vision": vision(),
              "vision_q12": vision_q12(), "init": init_exp(), "encoder": encoder(),
              "barren": csv_records("barren"), "barren_init": csv_records("barren_init"),
-             "speed": csv_records("speed"), "figures": figures(Path(a.out).parent)}
+             "speed": csv_records("speed"), "figures": figures(Path(a.out).parent),
+             "server": server()}
     for name, data in parts.items():
         if data is None:
             continue

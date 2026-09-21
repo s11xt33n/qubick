@@ -7,7 +7,7 @@
 <meta name="description" content="qhnn: библиотека на PyTorch и исследование гибридных квантово-классических нейронных сетей. Интерактивные результаты экспериментов.">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%232a78d6' stroke-width='3'/><circle cx='16' cy='16' r='4' fill='%23e87ba4'/></svg>">
-<link rel="stylesheet" href="style.css?v=1790032055">
+<link rel="stylesheet" href="style.css?v=1790033107">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 </head>
 <body>
@@ -366,8 +366,21 @@ loss.backward()   # градиент проходит через квантов�
 <!-- ============================================================ СЕРВЕР -->
 <main class="page" id="page-live">
 <section id="live">
-  <div class="section-head"><span class="eyebrow"><span class="live-dot"></span>В реальном времени</span><h2>Вычислительный сервер</h2>
-    <p class="lead">2 × Intel Xeon E5-2698 v4 (80 потоков), 64 ГБ RAM, NVIDIA Tesla V100 16 ГБ. Страница обновляется автоматически.</p></div>
+  <div class="section-head"><span class="eyebrow" id="live-eyebrow"><span class="live-dot"></span>В реальном времени</span><h2>Вычислительный сервер</h2>
+    <p class="lead">2 × Intel Xeon E5-2698 v4 (40 ядер, 80 потоков), 64 ГБ RAM, NVIDIA Tesla V100-SXM2 16 ГБ, Windows 11.
+      Эксперименты распределялись по ~130 параллельным процессам на CPU и GPU.</p>
+    <p class="enc-status" id="live-state"></p></div>
+  <div class="card">
+    <h3>Итоги вычислительной кампании</h3>
+    <div class="kpis" id="srv-totals"></div>
+  </div>
+  <div class="card"><h4>Нагрузка за весь прогон: CPU и Tesla V100, %</h4><div class="chart" id="ch-hist-load"></div></div>
+  <div class="grid2">
+    <div class="card"><h4>Температура V100 за весь прогон, °C</h4><div class="chart small" id="ch-hist-temp"></div></div>
+    <div class="card"><h4>Мощность V100 за весь прогон, Вт</h4><div class="chart small" id="ch-hist-power"></div></div>
+  </div>
+  <div class="card"><h4>Обучено моделей по сериям</h4><div class="chart small" id="ch-hist-series"></div></div>
+  <h3 style="margin-top:28px">Сейчас</h3>
   <div class="card">
     <div class="hero-num"><div class="num" id="hero-num">—</div><div class="cap" id="hero-cap"></div></div>
     <div class="grid4" id="tiles" style="margin-top:16px"></div>
@@ -395,6 +408,6 @@ loss.backward()   # градиент проходит через квантов�
   <div><b>QHNN</b> · Quantum Hybrid Neural Networks · гибридные квантово-классические нейронные сети</div>
   <div>Филадельфов Т. Г. · КФУ, ИВМиИТ · <span id="updated"></span></div>
 </footer>
-<script src="app.js?v=1790032055"></script>
+<script src="app.js?v=1790033107"></script>
 </body>
 </html>
