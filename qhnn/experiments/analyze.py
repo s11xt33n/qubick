@@ -419,7 +419,16 @@ def vision_q12():
     _save(fig, "vision_q12")
 
 
+def _raise_priority():
+    """На загруженном сервере экспорт для сайта не должен ждать своей очереди за экспериментами."""
+    import os
+    if os.name == "nt" and os.environ.get("QHNN_HIGH_PRIORITY"):
+        import ctypes
+        ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x80)
+
+
 def main():
+    _raise_priority()
     sys.stdout.reconfigure(encoding="utf-8")
     for f in (tabular, sweep, ablation, shots, vision, vision_q12, init_exp, encoder,
               barren, barren_init, speed):

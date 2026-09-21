@@ -1,6 +1,6 @@
 # Автообновление сайта: каждую минуту — JSON с результатами, каждые 10 минут — PNG-графики.
 param([int]$Interval = 60)
-$env:PYTHONIOENCODING = "utf-8"; $env:OPENBLAS_NUM_THREADS = "1"; $env:OMP_NUM_THREADS = "1"
+$env:PYTHONIOENCODING = "utf-8"; $env:OPENBLAS_NUM_THREADS = "1"; $env:OMP_NUM_THREADS = "1"; $env:QHNN_HIGH_PRIORITY = "1"
 Set-Location D:\qhnn
 $py = "D:\qhnn\.venv-cpu\Scripts\python.exe"
 $key = "$env:USERPROFILE\.ssh\id_qhnn_publish"

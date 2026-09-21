@@ -273,7 +273,16 @@ def figures(site_dir: Path):
     return items or None
 
 
+def _raise_priority():
+    """На загруженном сервере экспорт для сайта не должен ждать своей очереди за экспериментами."""
+    import os
+    if os.name == "nt" and os.environ.get("QHNN_HIGH_PRIORITY"):
+        import ctypes
+        ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x80)
+
+
 def main():
+    _raise_priority()
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "site" / "data"))
     a = ap.parse_args()
