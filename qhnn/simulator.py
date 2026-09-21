@@ -53,25 +53,32 @@ def _bit(idx: torch.Tensor, q: int, n: int) -> torch.Tensor:
     return (idx >> (n - 1 - q)) & 1
 
 
+# Вспомогательные тензоры кэшируются сразу на нужном устройстве,
+# чтобы не копировать их на GPU при каждом вентиле.
 @lru_cache(maxsize=None)
-def _cnot_perm(n: int, c: int, t: int) -> torch.Tensor:
+def _cnot_perm(n: int, c: int, t: int, device=None) -> torch.Tensor:
     idx = torch.arange(2**n)
     flip = _bit(idx, c, n) << (n - 1 - t)
-    return idx ^ flip
+    return (idx ^ flip).to(device)
 
 
 @lru_cache(maxsize=None)
-def _cz_sign(n: int, a: int, b: int) -> torch.Tensor:
+def _cz_sign(n: int, a: int, b: int, device=None) -> torch.Tensor:
     idx = torch.arange(2**n)
-    return 1 - 2 * (_bit(idx, a, n) & _bit(idx, b, n))
+    return (1 - 2 * (_bit(idx, a, n) & _bit(idx, b, n))).to(device)
 
 
 @lru_cache(maxsize=None)
-def z_signs(n: int) -> torch.Tensor:
+def z_signs(n: int, device=None) -> torch.Tensor:
     """Матрица (2**n, n): собственные значения Z_k (+1/-1) для базисных состояний."""
     idx = torch.arange(2**n).unsqueeze(1)
     q = torch.arange(n).unsqueeze(0)
-    return (1 - 2 * ((idx >> (n - 1 - q)) & 1)).float()
+    return (1 - 2 * ((idx >> (n - 1 - q)) & 1)).float().to(device)
+
+
+@lru_cache(maxsize=None)
+def _h_mat(device=None) -> torch.Tensor:
+    return H_MAT.to(device)
 
 
 # ---------------------------------------------------------------------------
@@ -91,12 +98,12 @@ def apply_1q(state: torch.Tensor, mat: torch.Tensor, q: int) -> torch.Tensor:
 
 def apply_perm(state: torch.Tensor, perm: torch.Tensor, n: int) -> torch.Tensor:
     flat = state.reshape(state.shape[0], -1)
-    return flat[:, perm.to(state.device)].reshape(state.shape)
+    return flat[:, perm].reshape(state.shape)
 
 
 def apply_sign(state: torch.Tensor, sign: torch.Tensor, n: int) -> torch.Tensor:
     flat = state.reshape(state.shape[0], -1)
-    return (flat * sign.to(state.device)).reshape(state.shape)
+    return (flat * sign).reshape(state.shape)
 
 
 def run_circuit(circuit: Circuit, angles: torch.Tensor) -> torch.Tensor:
@@ -106,17 +113,18 @@ def run_circuit(circuit: Circuit, angles: torch.Tensor) -> torch.Tensor:
     state = torch.zeros(batch, 2**n, dtype=CDTYPE, device=angles.device)
     state[:, 0] = 1.0
     state = state.reshape(batch, *([2] * n))
+    dev = angles.device
     k = 0
     for g in circuit.gates:
         if g.name in PARAM_GATES:
             state = apply_1q(state, GATE_FN[g.name](angles[:, k]), g.wires[0])
             k += 1
         elif g.name == "H":
-            state = apply_1q(state, H_MAT.to(angles.device), g.wires[0])
+            state = apply_1q(state, _h_mat(dev), g.wires[0])
         elif g.name == "CNOT":
-            state = apply_perm(state, _cnot_perm(n, *g.wires), n)
+            state = apply_perm(state, _cnot_perm(n, *g.wires, dev), n)
         elif g.name == "CZ":
-            state = apply_sign(state, _cz_sign(n, *g.wires), n)
+            state = apply_sign(state, _cz_sign(n, *g.wires, dev), n)
         else:
             raise ValueError(g.name)
     return state.reshape(batch, -1)
@@ -129,13 +137,13 @@ def probabilities(state: torch.Tensor) -> torch.Tensor:
 def expval_z(circuit: Circuit, angles: torch.Tensor) -> torch.Tensor:
     """<Z_k> для каждого кубита, форма (B, n)."""
     p = probabilities(run_circuit(circuit, angles))
-    return p @ z_signs(circuit.n_qubits).to(p.device)
+    return p @ z_signs(circuit.n_qubits, p.device)
 
 
 def expval_zz(circuit: Circuit, angles: torch.Tensor, a: int = 0, b: int = 1) -> torch.Tensor:
     """<Z_a Z_b>, форма (B,). Используется в эксперименте с barren plateaus."""
     p = probabilities(run_circuit(circuit, angles))
-    s = z_signs(circuit.n_qubits).to(p.device)
+    s = z_signs(circuit.n_qubits, p.device)
     return p @ (s[:, a] * s[:, b])
 
 

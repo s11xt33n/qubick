@@ -28,7 +28,8 @@ MODEL_LABEL = {"classical": "Classical MLP", "classical_matched": "MLP (равн
                "hybrid": "Hybrid QNN"}
 DS_LABEL = {"iris": "Iris", "wine": "Wine", "breast_cancer": "Breast Cancer",
             "moons": "Moons", "circles": "Circles", "vision:mnist": "MNIST",
-            "vision:fashion": "Fashion-MNIST", "vision:pneumonia": "PneumoniaMNIST"}
+            "vision:fashion": "Fashion-MNIST", "vision:pneumonia": "PneumoniaMNIST",
+            "vision:breast": "BreastMNIST"}
 COLORS = {"classical": "#4C72B0", "classical_matched": "#64B5CD", "bottleneck": "#8C8C8C",
           "quantum": "#C44E52", "hybrid": "#8172B3"}
 
@@ -39,11 +40,14 @@ warnings.filterwarnings("ignore")
 
 
 def _load(name):
-    for ext, reader in ((".jsonl", lambda f: pd.read_json(f, lines=True)), (".csv", pd.read_csv)):
-        p = RES / f"{name}{ext}"
-        if p.exists():
-            return reader(p)
-    return None
+    """Результаты серии: <name>.jsonl и <name>.gpu.jsonl (если считалось на GPU)."""
+    parts = [pd.read_json(p, lines=True) for p in sorted(RES.glob(f"{name}*.jsonl"))
+             if "_history" not in p.name or name.endswith("_history")]
+    if parts:
+        df = pd.concat(parts, ignore_index=True)
+        return df if name.endswith("_history") else df.drop_duplicates("run_id")
+    p = RES / f"{name}.csv"
+    return pd.read_csv(p) if p.exists() else None
 
 
 def _save(fig, name):
@@ -222,6 +226,9 @@ def vision():
         return
     print("[vision]")
     df["n_qubits"] = df.get("n_qubits", pd.Series(dtype=float)).fillna(0).astype(int)
+    # если выборка меньше запрошенного n_train (BreastMNIST), берём фактический размер
+    df["n_train"] = df[["n_train", "n_train_actual"]].min(axis=1)
+    df = df.drop_duplicates(["dataset", "model", "n_qubits", "n_train", "seed"])
     s = mean_std(df, ["dataset", "model", "n_qubits", "n_train"])
     _table(s, "vision_summary")
     _table(paired_tests(df[df.n_qubits.isin([0, 4])], ["dataset", "n_train"]), "vision_tests_q4")

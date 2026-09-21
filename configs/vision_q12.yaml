@@ -1,0 +1,17 @@
+# Эксперимент 7. Большие квантовые головы (12 кубитов) на изображениях — на Tesla V100.
+# Помогает ли увеличение числа кубитов на реальных задачах компьютерного зрения?
+name: vision_q12
+seeds: [0, 1, 2, 3, 4]
+grid:
+  dataset: [vision:mnist, vision:fashion, vision:pneumonia, vision:breast]
+  model: [hybrid, quantum, bottleneck, classical_matched]
+  n_train: [100, 500, 2000]
+fixed:
+  n_qubits: 12
+  n_layers: 2
+  encoding: angle
+  ansatz: strong
+  epochs: 150
+  patience: 20
+  lr: 0.01
+  batch_size: 64

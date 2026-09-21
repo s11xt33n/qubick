@@ -38,7 +38,7 @@ from qhnn.training import fit
 ROOT = Path(__file__).resolve().parents[2]
 CLASSICAL = {"classical"}  # модели, не зависящие от параметров квантовой схемы
 QUANTUM_KEYS = ("n_qubits", "n_layers", "encoding", "ansatz", "reupload",
-                "backend", "diff_method", "shots")
+                "backend", "diff_method", "shots", "init", "init_scale")
 TRAIN_KEYS = ("epochs", "batch_size", "lr", "weight_decay", "patience")
 
 
@@ -67,9 +67,25 @@ def expand(cfg: dict) -> list[dict]:
     return runs
 
 
-def run_one(p: dict) -> dict:
+LOCKS = ROOT / "results" / "locks"
+
+
+def claim(rid: str) -> bool:
+    """Бронирует запуск (lock-файл), чтобы несколько параллельных runner'ов
+    не считали одно и то же."""
+    LOCKS.mkdir(parents=True, exist_ok=True)
+    try:
+        os.close(os.open(LOCKS / rid, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        return True
+    except FileExistsError:
+        return False
+
+
+def run_one(p: dict) -> dict | None:
     torch.set_num_threads(1)
     p = dict(p)
+    if not claim(p["run_id"]):
+        return None
     rid, seed, device = p.pop("run_id"), p["seed"], p.pop("device", "cpu")
     log_history = p.pop("log_history", False)
     qkw = {k: p[k] for k in QUANTUM_KEYS if k in p}
@@ -91,33 +107,74 @@ def _init_worker():
     torch.set_num_threads(1)
 
 
+def estimated_cost(p: dict) -> float:
+    """Грубая оценка длительности запуска — длинные запускаются первыми."""
+    if p["model"] == "classical":
+        return 1.0
+    n_q, L = p.get("n_qubits", 4), p.get("n_layers", 2)
+    cost = (2 ** n_q) * n_q * L * (p.get("n_train") or 300)
+    if p.get("diff_method") == "parameter-shift":
+        cost *= 6 * n_q * L
+    return cost
+
+
 def main(argv=None):
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
-    ap = argparse.ArgumentParser(description="Запуск серии экспериментов qhnn")
-    ap.add_argument("config")
+    ap = argparse.ArgumentParser(description="Запуск серий экспериментов qhnn")
+    ap.add_argument("configs", nargs="+")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--limit", type=int, default=None, help="запустить только N первых")
+    ap.add_argument("--gpu-min-qubits", type=int, default=None,
+                    help="запуски с n_qubits >= N отправлять на GPU (отдельный пул)")
+    ap.add_argument("--gpu-workers", type=int, default=4)
+    ap.add_argument("--min-qubits", type=int, default=None,
+                    help="брать только запуски с n_qubits >= N (классика считается 0)")
+    ap.add_argument("--max-qubits", type=int, default=None,
+                    help="брать только запуски с n_qubits <= N")
+    ap.add_argument("--tag", default="",
+                    help="суффикс файла результатов, напр. .gpu -> <name>.gpu.jsonl")
     args = ap.parse_args(argv)
+    # в Windows ProcessPoolExecutor допускает не более 61 процесса
+    if os.name == "nt":
+        args.workers = min(args.workers, 60)
 
-    cfg = yaml.safe_load(open(args.config, encoding="utf-8"))
-    out = ROOT / "results" / f"{cfg['name']}.jsonl"
-    hist_out = ROOT / "results" / f"{cfg['name']}_history.jsonl"
-    out.parent.mkdir(parents=True, exist_ok=True)
-
-    runs = expand(cfg)
-    done = set(load_results(out)["run_id"]) if out.exists() else set()
-    todo = [r for r in runs if r["run_id"] not in done][: args.limit]
+    todo, outs = [], {}
+    for path in args.configs:
+        cfg = yaml.safe_load(open(path, encoding="utf-8"))
+        name = cfg["name"]
+        out = ROOT / "results" / f"{name}{args.tag}.jsonl"
+        outs[name] = (out, ROOT / "results" / f"{name}_history{args.tag}.jsonl")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        runs = expand(cfg)
+        done = set()
+        for f in (ROOT / "results").glob(f"{name}*.jsonl"):
+            if "_history" not in f.name:
+                done |= set(load_results(f)["run_id"])
+        q = lambda r: r.get("n_qubits", 0)
+        runs = [r for r in runs
+                if (args.min_qubits is None or q(r) >= args.min_qubits)
+                and (args.max_qubits is None or q(r) <= args.max_qubits)]
+        new = [r for r in runs if r["run_id"] not in done]
+        for r in new:
+            r["device"] = args.device
+            r["log_history"] = cfg.get("log_history", False)
+            r["_series"] = name
+        print(f"[{name}] всего {len(runs)}, уже есть {len(done)}, к запуску {len(new)}",
+              flush=True)
+        todo += new
+    todo.sort(key=estimated_cost, reverse=True)
+    todo = todo[: args.limit]
     for r in todo:
-        r["device"] = args.device
-        r["log_history"] = cfg.get("log_history", False)
-    print(f"[{cfg['name']}] всего {len(runs)}, уже есть {len(done)}, к запуску {len(todo)}"
-          f" (процессов: {args.workers})", flush=True)
+        if args.gpu_min_qubits and r.get("n_qubits", 0) >= args.gpu_min_qubits:
+            r["device"] = "cuda"
+    print(f"Итого к запуску: {len(todo)} (процессов: {args.workers})", flush=True)
 
     t0 = time.time()
 
-    def save(res):
+    def save(series, res):
+        out, hist_out = outs[series]
         # JSONL: одна строка — один запуск; набор полей у моделей может различаться
         with open(out, "a", encoding="utf-8") as f:
             f.write(json.dumps(res["row"], ensure_ascii=False, default=str) + "\n")
@@ -126,27 +183,42 @@ def main(argv=None):
                 for h in res["history"]:
                     f.write(json.dumps(h) + "\n")
 
-    def report(i, r):
+    def report(i, series, r):
         row = r["row"]
-        print(f"  {i}/{len(todo)} {row['dataset']:>14} {row['model']:>18} "
-              f"q={row.get('n_qubits', '-')} L={row.get('n_layers', '-')} seed={row['seed']} "
-              f"acc={row['accuracy']:.3f} f1={row['f1']:.3f} ep={row['epochs']} "
+        print(f"  {i}/{len(todo)} [{series}] {row['dataset']:>16} {row['model']:>17} "
+              f"q={row.get('n_qubits', '-')} L={row.get('n_layers', '-')} "
+              f"n={row.get('n_train', '-')} seed={row['seed']} "
+              f"acc={row['accuracy']:.3f} ep={row['epochs']} "
               f"t={row['train_time']:.1f}s  [{time.time() - t0:.0f}s]", flush=True)
+
+    def strip(r):
+        return {k: v for k, v in r.items() if k != "_series"}
 
     if args.workers <= 1:
         for i, r in enumerate(todo, 1):
-            res = run_one(r); save(res); report(i, res)
+            res = run_one(strip(r))
+            if res is not None:
+                save(r["_series"], res); report(i, r["_series"], res)
     else:
-        with ProcessPoolExecutor(args.workers, initializer=_init_worker) as ex:
-            futs = {ex.submit(run_one, r): r for r in todo}
+        cpu = ProcessPoolExecutor(args.workers, initializer=_init_worker)
+        gpu = ProcessPoolExecutor(args.gpu_workers, initializer=_init_worker)             if any(r["device"] != "cpu" for r in todo) else None
+        with cpu:
+            futs = {(gpu if r["device"] != "cpu" else cpu).submit(run_one, strip(r)): r
+                    for r in todo}
             for i, f in enumerate(as_completed(futs), 1):
+                r = futs[f]
                 try:
                     res = f.result()
                 except Exception:
-                    print("ОШИБКА в запуске", futs[f], traceback.format_exc(), flush=True)
+                    (LOCKS / r["run_id"]).unlink(missing_ok=True)  # чтобы перезапуск досчитал
+                    print("ОШИБКА в запуске", r, traceback.format_exc(), flush=True)
                     continue
-                save(res); report(i, res)
-    print(f"[{cfg['name']}] готово за {time.time() - t0:.0f} с -> {out}")
+                if res is None:  # запуск уже взял другой runner
+                    continue
+                save(r["_series"], res); report(i, r["_series"], res)
+        if gpu:
+            gpu.shutdown()
+    print(f"Готово за {time.time() - t0:.0f} с")
 
 
 if __name__ == "__main__":

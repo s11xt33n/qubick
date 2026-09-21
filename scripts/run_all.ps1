@@ -1,27 +1,34 @@
-# Полная серия экспериментов на сервере (2x Xeon E5-2698 v4 + Tesla V100).
-# powershell -ExecutionPolicy Bypass -File scripts\run_all.ps1 [-Workers 36]
-param([int]$Workers = 36)
-$ErrorActionPreference = "Continue"
-$env:CUDA_DEVICE_ORDER = "PCI_BUS_ID"
-$env:CUDA_VISIBLE_DEVICES = "1"
-$env:PYTHONIOENCODING = "utf-8"
-$py = ".\.venv\Scripts\python.exe"
-New-Item -ItemType Directory -Force results | Out-Null
-
-function Log($msg) { "$(Get-Date -Format 'HH:mm:ss') $msg" | Tee-Object -FilePath results\run_all.log -Append }
-
-Log "features (GPU)"
-& $py -m qhnn.features mnist fashion pneumonia --device cuda --n-train 10000 --n-test 2000 *>> results\features.log
-
-Log "speed"
-& $py -m qhnn.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 *>> results\speed.log
-Log "barren (GPU)"
-& $py -m qhnn.experiments.barren --device cuda --qubits 2 4 6 8 10 12 14 --layers 1 5 20 --samples 2000 *>> results\barren.log
-
-foreach ($cfg in "tabular", "shots", "ablation", "sweep", "vision") {
-    Log "runner $cfg"
-    & $py -m qhnn.experiments.runner "configs\$cfg.yaml" --workers $Workers *>> "results\$cfg.log"
+# Полная серия экспериментов на сервере — все 80 потоков CPU + Tesla V100.
+#   .venv-cpu — PyTorch без CUDA для CPU-процессов
+#   .venv     — PyTorch + CUDA 12.6 для задач на V100
+# Все серии можно перезапускать: посчитанные запуски пропускаются.
+$env:CUDA_DEVICE_ORDER = "PCI_BUS_ID"; $env:CUDA_VISIBLE_DEVICES = "1"; $env:PYTHONIOENCODING = "utf-8"
+Set-Location D:\qhnn
+$cpu_py = "D:\qhnn\.venv-cpu\Scripts\python.exe"
+$gpu_py = "D:\qhnn\.venv\Scripts\python.exe"
+function Log($m) { "$(Get-Date -Format 'HH:mm:ss') $m" | Out-File results\run_all.log -Append -Encoding utf8 }
+function Run($py, $a, $log) {
+    Start-Process $py -ArgumentList $a -NoNewWindow -PassThru `
+        -RedirectStandardOutput "results\$log.log" -RedirectStandardError "results\$log.err"
 }
-Log "analyze"
-& $py -m qhnn.experiments.analyze *>> results\analyze.log
-Log "done"
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File D:\qhnn\scripts\monitor.ps1"
+$base = "configs\tabular.yaml configs\shots.yaml configs\ablation.yaml configs\sweep.yaml"
+
+Log "START: CPU x60 (tabular/shots/ablation/sweep<=8q) + GPU x6 (sweep 10-12q) + GPU features"
+$cpu = Run $cpu_py "-m qhnn.experiments.runner $base --workers 60 --max-qubits 8" "main_cpu"
+$gpu = Run $gpu_py "-m qhnn.experiments.runner $base --workers 6 --min-qubits 10 --device cuda --tag .gpu" "main_gpu"
+& $gpu_py -m qhnn.features mnist fashion pneumonia breast --device cuda --n-train 10000 --n-test 2000 *> results\features.log
+Log "features done -> vision CPU x20"
+$vis = Run $cpu_py "-m qhnn.experiments.runner configs\vision.yaml --workers 20" "vision"
+Log "barren (GPU)"
+& $gpu_py -m qhnn.experiments.barren --device cuda --qubits 2 4 6 8 10 12 14 16 --layers 1 5 20 50 --samples 2000 *> results\barren.log
+Log "barren done"
+$gpu.WaitForExit(); Log "GPU runner done"
+$cpu.WaitForExit(); Log "CPU runner done"
+# освободившиеся ядра — на досчёт vision
+$vis2 = Run $cpu_py "-m qhnn.experiments.runner configs\vision.yaml --workers 40 --tag .b" "vision2"
+$vis.WaitForExit(); $vis2.WaitForExit(); Log "vision done"
+Log "speed (на свободной машине)"
+& $gpu_py -m qhnn.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 16 --pl-max-qubits 12 *> results\speed.log
+& $gpu_py -m qhnn.experiments.analyze *> results\analyze.log
+Log "ALL DONE"

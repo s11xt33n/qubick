@@ -40,6 +40,8 @@ def main():
     ap.add_argument("--devices", nargs="+", default=["cpu"])
     ap.add_argument("--pl-max-qubits", type=int, default=10)
     ap.add_argument("--pl-ps-max-qubits", type=int, default=6)
+    ap.add_argument("--ps-max-qubits", type=int, default=10,
+                    help="parameter-shift дорог (2G прогонов схемы): ограничиваем размер")
     ap.add_argument("--out", default=str(ROOT / "results" / "speed.csv"))
     a = ap.parse_args()
     torch.set_num_threads(4)
@@ -52,6 +54,8 @@ def main():
             if backend == "pennylane" and n > a.pl_max_qubits:
                 continue
             if backend == "pennylane" and method != "backprop" and n > a.pl_ps_max_qubits:
+                continue
+            if method == "parameter-shift" and n > a.ps_max_qubits:
                 continue
             for dev in devs:
                 torch.manual_seed(0)

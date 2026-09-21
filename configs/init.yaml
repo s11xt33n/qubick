@@ -1,0 +1,17 @@
+# Эксперимент 8. Инициализация весов квантового слоя и обучаемость глубоких схем.
+# uniform — стандарт U[0, 2π); small — N(0, 0.1²), схема близка к тождественной.
+name: init
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+grid:
+  dataset: [breast_cancer, moons, wine]
+  model: [hybrid, quantum]
+  n_qubits: [4, 8]
+  n_layers: [2, 8]
+  init: [uniform, small]
+fixed:
+  encoding: angle
+  ansatz: strong
+  epochs: 300
+  patience: 30
+  lr: 0.01
+  batch_size: 32

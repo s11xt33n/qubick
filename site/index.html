@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qhnn — гибридные квантово-классические нейросети</title>
+<meta name="description" content="Библиотека qhnn и результаты экспериментов: сравнение классических, квантовых и гибридных нейронных сетей.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%232a78d6' stroke-width='3'/><circle cx='16' cy='16' r='4' fill='%23e87ba4'/></svg>">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">qhnn <span>· НИР, 2 семестр</span></div>
+    <nav>
+      <a href="#overview">Обзор</a>
+      <a href="#progress">Прогресс</a>
+      <a href="#library">Библиотека</a>
+      <a href="#tabular">Табличные данные</a>
+      <a href="#vision">Изображения</a>
+      <a href="#sweep">Кубиты и глубина</a>
+      <a href="#ablation">Абляция</a>
+      <a href="#shots">Shots</a>
+      <a href="#barren">Barren plateaus</a>
+      <a href="#speed">Скорость</a>
+    </nav>
+    <button class="theme-btn" id="theme" title="Светлая / тёмная тема">◐</button>
+  </div>
+</header>
+
+<main>
+<section id="overview">
+  <h1>Гибридные квантово-классические нейронные сети</h1>
+  <p class="lead">Разработка библиотеки <b>qhnn</b> на PyTorch и экспериментальное
+    исследование: когда квантовый слой в нейросети действительно помогает, а когда
+    хватает классической модели того же размера.</p>
+  <p class="note">Филадельфов Т. Г., гр. 09-535, КФУ ИВМиИТ, кафедра САИТ ·
+    Научный руководитель — Васильев А. В. · Магистерская программа «Машинное обучение и компьютерное зрение»</p>
+  <div class="card">
+    <div class="kpis" id="kpis"></div>
+  </div>
+  <div class="card">
+    <h3>Ключевые выводы</h3>
+    <ul class="findings" id="findings"></ul>
+    <p class="note" style="margin-bottom:0">Все цифры на странице — средние по 10 независимым запускам (seed),
+      разброс — стандартное отклонение, значимость — парный тест Уилкоксона, p &lt; 0.05.</p>
+  </div>
+</section>
+
+<section id="progress">
+  <h2><span class="live-dot"></span>Прогресс вычислений</h2>
+  <p class="lead">Эксперименты считаются на сервере: 2 × Intel Xeon E5-2698 v4 (80 потоков), 64 ГБ RAM,
+    NVIDIA Tesla V100 16 ГБ. Страница обновляется автоматически.</p>
+  <div class="card">
+    <div class="hero"><div class="num" id="hero-num">—</div><div class="cap" id="hero-cap"></div></div>
+    <div class="grid4" id="tiles" style="margin-top:16px"></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Загрузка CPU, %</h3><div class="chart small" id="ch-cpu"></div></div>
+    <div class="card"><h3>Загрузка Tesla V100, %</h3><div class="chart small" id="ch-gpu"></div></div>
+    <div class="card"><h3>Температура V100, °C</h3><div class="chart small" id="ch-temp"></div></div>
+    <div class="card"><h3>Мощность V100, Вт</h3><div class="chart small" id="ch-power"></div></div>
+  </div>
+</section>
+
+<section id="library">
+  <h2>Библиотека qhnn</h2>
+  <p class="lead">Собственная реализация, а не обёртка: батчевый симулятор вектора состояния
+    на PyTorch, обучаемый квантовый слой, два способа вычисления градиентов и
+    воспроизводимая инфраструктура экспериментов.</p>
+  <div class="card">
+    <svg class="arch" viewBox="0 0 900 250" role="img" aria-label="Архитектура гибридной модели">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>
+      <g font-size="14" fill="var(--ink)" text-anchor="middle">
+        <rect x="10" y="80" width="130" height="70" rx="8" fill="var(--surface)" stroke="var(--axis)"/>
+        <text x="75" y="110">Вход x</text><text x="75" y="130" font-size="12" fill="var(--ink-2)">признаки / ResNet18</text>
+        <rect x="185" y="80" width="150" height="70" rx="8" fill="var(--surface)" stroke="var(--s3)" stroke-width="2"/>
+        <text x="260" y="110">Encoder</text><text x="260" y="130" font-size="12" fill="var(--ink-2)">Linear → π·tanh</text>
+        <rect x="380" y="40" width="230" height="150" rx="8" fill="var(--surface)" stroke="var(--s1)" stroke-width="2"/>
+        <text x="495" y="64">QuantumLayer</text>
+        <text x="495" y="92" font-size="12" fill="var(--ink-2)">кодирование: RY(x) / RX(x) / H·RZ·RY</text>
+        <text x="495" y="112" font-size="12" fill="var(--ink-2)">L слоёв: вращения + CNOT/CZ</text>
+        <text x="495" y="132" font-size="12" fill="var(--ink-2)">измерение ⟨Z₀⟩ … ⟨Zₙ₋₁⟩</text>
+        <text x="495" y="160" font-size="12" fill="var(--ink-2)">backprop · parameter-shift · shots</text>
+        <text x="495" y="178" font-size="12" fill="var(--ink-2)">бэкенды: qhnn-симулятор · PennyLane</text>
+        <rect x="655" y="80" width="120" height="70" rx="8" fill="var(--surface)" stroke="var(--s3)" stroke-width="2"/>
+        <text x="715" y="110">Head</text><text x="715" y="130" font-size="12" fill="var(--ink-2)">Linear → классы</text>
+        <rect x="810" y="80" width="80" height="70" rx="8" fill="var(--surface)" stroke="var(--axis)"/>
+        <text x="850" y="120">ŷ</text>
+      </g>
+      <g stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ar)">
+        <line x1="140" y1="115" x2="183" y2="115"/><line x1="335" y1="115" x2="378" y2="115"/>
+        <line x1="610" y1="115" x2="653" y2="115"/><line x1="775" y1="115" x2="808" y2="115"/>
+      </g>
+      <text x="450" y="235" font-size="12" fill="var(--muted)" text-anchor="middle">Все параметры (классические и квантовые) обучаются совместно одним оптимизатором Adam</text>
+    </svg>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Возможности</h3>
+      <ul class="findings">
+        <li><b>Симулятор</b> — весь батч исполняется одновременно, CPU и GPU, autograd PyTorch</li>
+        <li><b>QuantumLayer</b> как обычный <code>nn.Module</code>: 3 кодирования, 3 анзаца, data re-uploading</li>
+        <li><b>Градиенты</b>: backprop и parameter-shift (как на реальном квантовом процессоре), режим конечного числа измерений</li>
+        <li><b>Проверка корректности</b>: 158 автотестов, совпадение с PennyLane на 96 конфигурациях схем</li>
+        <li><b>Экспорт в OpenQASM 2.0</b> для запуска на реальном оборудовании</li>
+        <li><b>Эксперименты по YAML</b>: параллельный запуск, продолжение после сбоя, CPU + GPU</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Пример</h3>
+<pre><code>import torch
+from torch import nn
+from qhnn import QuantumLayer
+
+model = nn.Sequential(
+    nn.Linear(30, 4), nn.Tanh(),           # encoder
+    QuantumLayer(n_qubits=4, n_layers=2),  # 4 -> 4
+    nn.Linear(4, 2),                       # head
+)
+loss = model(torch.randn(8, 30)).sum()
+loss.backward()   # градиент проходит через схему</code></pre>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Модели для сравнения</h3>
+    <div class="table-wrap"><table class="data" id="models-table"></table></div>
+  </div>
+</section>
+
+<section id="tabular">
+  <h2>Эксперимент 1. Табличные данные</h2>
+  <p class="lead">Пять моделей × пять наборов данных × 10 seed. Обучение до сходимости с ранней остановкой
+    по валидации. Для честного сравнения добавлены MLP с тем же числом параметров, что у гибрида, и
+    «bottleneck» — гибрид, в котором квантовый слой заменён классическим.</p>
+  <div class="card"><h3>Accuracy на тесте, среднее ± std</h3><div class="chart tall" id="ch-tabular"></div></div>
+  <div class="card">
+    <h3>Hybrid QNN против остальных (парный тест Уилкоксона)</h3>
+    <div class="table-wrap"><table class="data" id="tab-tests"></table></div>
+    <details><summary>Полная таблица результатов</summary><div class="table-wrap"><table class="data" id="tab-summary"></table></div></details>
+  </div>
+</section>
+
+<section id="vision">
+  <h2>Эксперимент 2. Изображения: гибридное transfer learning</h2>
+  <p class="lead">Замороженная ResNet18 (ImageNet) превращает изображение в 512 признаков, обучается только голова:
+    классическая, квантовая или гибридная (Mari et al., 2020). Главный вопрос — поведение при малом объёме
+    обучающих данных. Пока серия считается, на графике видны только уже готовые конфигурации.</p>
+  <div class="controls">
+    <label>Набор данных <select id="vis-ds"></select></label>
+    <label>Кубиты <select id="vis-q"></select></label>
+  </div>
+  <div class="card"><h3 id="vis-title">Accuracy в зависимости от размера обучающей выборки</h3><div class="chart tall" id="ch-vision"></div></div>
+  <div class="card"><h3>Hybrid QNN против остальных по размерам выборки</h3><div class="table-wrap"><table class="data" id="vis-tests"></table></div></div>
+</section>
+
+<section id="sweep">
+  <h2>Эксперимент 3. Число кубитов и глубина схемы</h2>
+  <p class="lead">Как точность и стоимость обучения зависят от ширины (2–12 кубитов) и глубины (1–4 слоя) схемы.</p>
+  <div class="controls">
+    <label>Набор данных <select id="sw-ds"></select></label>
+    <label>Модель <select id="sw-model"><option value="hybrid">Hybrid QNN</option><option value="quantum">Quantum QNN</option></select></label>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Accuracy: слои × кубиты</h3><div class="chart" id="ch-sweep-heat"></div></div>
+    <div class="card"><h3>Время одной эпохи, с (лог. шкала)</h3><div class="chart" id="ch-sweep-time"></div></div>
+  </div>
+</section>
+
+<section id="ablation">
+  <h2>Эксперимент 4. Абляция квантового слоя</h2>
+  <p class="lead">Вклад компонентов схемы: способ кодирования данных, тип вариационного анзаца и повторная загрузка данных (re-uploading).</p>
+  <div class="controls"><label>Набор данных <select id="ab-ds"></select></label></div>
+  <div class="grid2" id="ab-charts">
+    <div class="card"><h3>Кодирование</h3><div class="chart small" id="ch-ab-encoding"></div></div>
+    <div class="card"><h3>Анзац</h3><div class="chart small" id="ch-ab-ansatz"></div></div>
+    <div class="card"><h3>Re-uploading</h3><div class="chart small" id="ch-ab-reupload"></div></div>
+    <div class="card"><h3>Лучшие конфигурации</h3><div class="table-wrap"><table class="data" id="ab-top"></table></div></div>
+  </div>
+</section>
+
+<section id="shots">
+  <h2>Эксперимент 5. Конечное число измерений</h2>
+  <p class="lead">На реальном квантовом процессоре ⟨Z⟩ оценивается по конечному числу измерений (shots), а градиенты — по
+    правилу сдвига параметра. Здесь гибридная модель обучается именно так.</p>
+  <div class="card"><h3>Accuracy в зависимости от числа shots</h3><div class="chart" id="ch-shots"></div></div>
+</section>
+
+<section id="barren">
+  <h2>Эксперимент 6. Barren plateaus</h2>
+  <p class="lead">Дисперсия градиента по параметру схемы при случайной инициализации. Экспоненциальное затухание
+    с ростом числа кубитов делает обучение больших схем практически невозможным (McClean et al., 2018).
+    Для глобальной функции стоимости эффект сильнее (Cerezo et al., 2021).</p>
+  <div class="grid2">
+    <div class="card"><h3>Локальная стоимость ⟨Z₀Z₁⟩</h3><div class="chart" id="ch-barren-local"></div></div>
+    <div class="card"><h3>Глобальная стоимость ⟨Z₀…Zₙ₋₁⟩</h3><div class="chart" id="ch-barren-global"></div></div>
+  </div>
+</section>
+
+<section id="speed">
+  <h2>Скорость симулятора</h2>
+  <p class="lead">Время одного шага обучения (прямой + обратный проход, батч 32, 2 слоя) — собственный симулятор против PennyLane.</p>
+  <div class="card"><h3>Шаг обучения, мс (лог. шкала)</h3><div class="chart tall" id="ch-speed"></div></div>
+</section>
+</main>
+<footer>qhnn · КФУ ИВМиИТ · <span id="updated"></span></footer>
+<script src="app.js"></script>
+</body>
+</html>
