@@ -4,9 +4,11 @@ Set-Location D:\qhnn\results
 $o = Get-CimInstance Win32_OperatingSystem
 $g = (& nvidia-smi -i 1 --query-gpu=temperature.gpu,utilization.gpu,power.draw --format=csv,noheader,nounits) -replace " ", ""
 $cpu = [math]::Round((Get-CimInstance Win32_PerfFormattedData_Counters_ProcessorInformation | Where-Object { $_.Name -notmatch "_Total" } | Measure-Object PercentProcessorTime -Average).Average)
-$counts = foreach ($n in "tabular","shots","ablation","sweep","vision") {
+$counts = foreach ($n in "tabular","shots","ablation","sweep","vision","vision_q12","init") {
     $c = 0
-    foreach ($f in @("$n.jsonl", "$n.gpu.jsonl")) { if (Test-Path $f) { $c += (Get-Content $f | Measure-Object -Line).Lines } }
+    foreach ($f in Get-ChildItem "$n.*jsonl" -EA SilentlyContinue) {
+        if ($f.Name -notlike "*_history*") { $c += (Get-Content $f.FullName | Measure-Object -Line).Lines }
+    }
     "$n=$c"
 }
 $feat = @(Get-ChildItem features\*.npz -ErrorAction SilentlyContinue).Name -join "+"

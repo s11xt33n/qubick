@@ -30,8 +30,34 @@ const color = (m) => css(`--s${MODEL_SLOT[m]}`);
 const fmt = (x, d = 3) => (x == null ? "—" : Number(x).toFixed(d));
 const pct = (x) => (x == null ? "—" : (100 * x).toFixed(1) + "%");
 const uniq = (a) => [...new Set(a)];
+const pos = (v) => (v != null && v > 0 ? v : null);  // для логарифмических шкал: 0 и отрицательные — пропуск
 const charts = {};
 const data = {};
+const ENC_LABEL = { bn: "BN + (π/2)·tanh", pi2: "(π/2)·tanh", pi: "π·tanh (исходный)" };
+let ENC = "bn";
+try { ENC = localStorage.getItem("enc") || "bn"; } catch (e) {}
+
+// строки сводки для выбранного encoder'а: модели без encoder'а (enc = "-") остаются всегда;
+// если выбранного варианта в серии ещё нет — берём ближайший доступный
+function pickEnc(rows, section) {
+  const avail = uniq(rows.filter((r) => r.enc && r.enc !== "-").map((r) => r.enc));
+  const e = avail.includes(ENC) ? ENC : ["bn", "pi2", "pi"].find((x) => avail.includes(x));
+  if (section) tagSection(section, e);
+  return { enc: e, rows: rows.filter((r) => !r.enc || r.enc === "-" || r.enc === e) };
+}
+// метка в заголовке эксперимента: какой encoder гибрида реально показан
+function tagSection(section, e) {
+  const h = document.querySelector(`#${section} .exp-title`);
+  if (!h || !e) return;
+  let t = h.querySelector(".enc-tag");
+  if (!t) { t = document.createElement("span"); t.className = "enc-tag"; h.appendChild(t); }
+  t.textContent = `encoder: ${ENC_LABEL[e]}` + (e !== ENC ? " · выбранный ещё считается" : "");
+  t.classList.toggle("fallback", e !== ENC);
+}
+function encNote(id, e) {
+  const el = $(id);
+  if (el && e && e !== ENC) el.dataset.encNote = `(encoder: ${ENC_LABEL[e]} — выбранный ещё считается)`;
+}
 
 // ---------------------------------------------------------------- тема
 (function theme() {
@@ -155,7 +181,7 @@ async function load(name) {
 
 async function loadAll() {
   const names = ["progress", "tabular", "vision", "sweep", "ablation", "shots", "barren", "speed",
-    "vision_q12", "init", "barren_init"];
+    "vision_q12", "init", "barren_init", "encoder", "figures"];
   const res = await Promise.all(names.map(load));
   names.forEach((n, i) => { if (res[i]) data[n] = res[i]; });
   renderAll();
@@ -163,7 +189,8 @@ async function loadAll() {
 
 function renderAll() {
   const steps = [renderModels, renderProgress, renderOverview, renderTabular, renderVision,
-    renderSweep, renderAblation, renderShots, renderBarren, renderSpeed, renderQ12, renderInit];
+    renderSweep, renderAblation, renderShots, renderBarren, renderSpeed, renderQ12, renderInit,
+    renderEncoder, renderGallery, renderEncSwitch];
   steps.forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
 
@@ -230,7 +257,7 @@ function renderOverview() {
     [done.toLocaleString("ru"), "обученных моделей"],
     ["158", "автотестов"],
     ["9", "наборов данных"],
-    ["2–16", "кубитов"],
+    ["2–20", "кубитов в экспериментах"],
   ];
   if (data.speed) {
     const sp = data.speed;
@@ -248,8 +275,9 @@ function renderOverview() {
   const f = $("findings");
   f.textContent = "";
   const items = [];
-  const tb = data.tabular;
-  if (tb) {
+  const tb0 = data.tabular;
+  const tb = tb0 ? { summary: pickEnc(tb0.summary).rows, tests: (tb0.tests || []).filter((t) => t.enc === pickEnc(tb0.summary).enc) } : null;
+  if (tb && tb.tests.length) {
     const sig = (vs) => tb.tests.filter((r) => r.vs === vs && r.significant && r.mean_diff > 0).map((r) => DS_LABEL[r.dataset]);
     const sigQ = sig("quantum");
     if (sigQ.length) items.push(`Гибридная модель значимо точнее чистой квантовой сети на ${sigQ.join(", ")}: классический encoder снимает ограничение «признаков не больше, чем кубитов».`);
@@ -274,8 +302,10 @@ function renderOverview() {
 
 // ---------------------------------------------------------------- табличные данные
 function renderTabular() {
-  const d = data.tabular;
-  if (!d) return;
+  const d0 = data.tabular;
+  if (!d0) return;
+  const pk = pickEnc(d0.summary, "tabular");
+  const d = { summary: pk.rows, tests: (d0.tests || []).filter((t) => t.enc === pk.enc) };
   const ds = ["iris", "wine", "breast_cancer", "moons", "circles"].filter((x) => d.summary.some((r) => r.dataset === x));
   const models = MODELS.filter((m) => d.summary.some((r) => r.model === m));
   const get = (dset, m) => d.summary.find((r) => r.dataset === dset && r.model === m) || {};
@@ -328,8 +358,10 @@ function renderTabular() {
 
 // ---------------------------------------------------------------- изображения
 function renderVision() {
-  const d = data.vision;
-  if (!d || !d.summary.length) { placeholder("ch-vision", "Расчёт идёт — данные появятся здесь автоматически"); return; }
+  const d0 = data.vision;
+  if (!d0 || !d0.summary.length) { placeholder("ch-vision", "Расчёт идёт — данные появятся здесь автоматически"); return; }
+  const pk = pickEnc(d0.summary, "vision");
+  const d = { summary: pk.rows, tests: (d0.tests || []).filter((t) => t.enc === pk.enc) };
   const dss = Object.keys(DS_LABEL).filter((x) => x.startsWith("vision:") && d.summary.some((r) => r.dataset === x));
   fillSelect("vis-ds", dss, DS_LABEL);
   const ds = $("vis-ds").value;
@@ -368,8 +400,9 @@ function renderVision() {
 
 // ---------------------------------------------------------------- кубиты × глубина
 function renderSweep() {
-  const d = data.sweep;
-  if (!d || !d.summary.length) { placeholder("ch-sweep-heat", "Расчёт идёт…"); return; }
+  const d0 = data.sweep;
+  if (!d0 || !d0.summary.length) { placeholder("ch-sweep-heat", "Расчёт идёт…"); return; }
+  const d = { summary: pickEnc(d0.summary, "sweep").rows };
   const dss = ["breast_cancer", "wine", "moons"].filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("sw-ds", dss, DS_LABEL);
   const ds = $("sw-ds").value, m = $("sw-model").value;
@@ -398,15 +431,16 @@ function renderSweep() {
     xAxis: { ...base().xAxis, type: "category", data: qs.map(String), name: "Кубиты", nameLocation: "middle", nameGap: 26 },
     yAxis: { ...base().yAxis, type: "log", name: "с / эпоха" },
     series: Ls.map((L, i) => ({ name: `L = ${L}`, type: "line", symbolSize: 8,
-      data: qs.map((q) => { const r = rows.find((x) => x.n_qubits === q && x.n_layers === L); return r ? r.time_per_epoch_mean : null; }),
+      data: qs.map((q) => { const r = rows.find((x) => x.n_qubits === q && x.n_layers === L); return r ? pos(r.time_per_epoch_mean) : null; }),
       lineStyle: { width: 2, color: css(ramp[i % ramp.length]) }, itemStyle: { color: css(ramp[i % ramp.length]), borderColor: css("--surface"), borderWidth: 2 } })),
   }), true);
 }
 
 // ---------------------------------------------------------------- абляция
 function renderAblation() {
-  const d = data.ablation;
-  if (!d || !d.summary.length) { ["encoding", "ansatz", "reupload"].forEach((f) => placeholder(`ch-ab-${f}`, "Расчёт идёт…")); return; }
+  const d0 = data.ablation;
+  if (!d0 || !d0.summary.length) { ["encoding", "ansatz", "reupload"].forEach((f) => placeholder(`ch-ab-${f}`, "Расчёт идёт…")); return; }
+  const d = { summary: pickEnc(d0.summary, "ablation").rows };
   const dss = ["moons", "circles", "breast_cancer"].filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("ab-ds", dss, DS_LABEL);
   const ds = $("ab-ds").value;
@@ -436,8 +470,9 @@ function renderAblation() {
 
 // ---------------------------------------------------------------- shots
 function renderShots() {
-  const d = data.shots;
-  if (!d || !d.summary.length) return;
+  const d0 = data.shots;
+  if (!d0 || !d0.summary.length) return;
+  const d = { summary: pickEnc(d0.summary, "shots").rows };
   const order = [100, 1000, 10000, 0];
   const lbl = (s) => (s === 0 ? "точно (∞)" : s.toLocaleString("ru"));
   const dss = uniq(d.summary.map((r) => r.dataset));
@@ -473,7 +508,7 @@ function renderBarren() {
       xAxis: { ...base().xAxis, type: "category", data: qs.map(String), name: "Кубиты", nameLocation: "middle", nameGap: 26 },
       yAxis: { ...base().yAxis, type: "log", name: "Var[∂C/∂θ]", axisLabel: { color: css("--muted"), formatter: (v) => Number(v).toExponential(0) } },
       series: Ls.map((L, i) => ({ name: `L = ${L}`, type: "line", symbolSize: 8,
-        data: qs.map((q) => { const r = d.find((x) => x.cost === cost && x.n_layers === L && x.n_qubits === q); return r ? r.grad_var : null; }),
+        data: qs.map((q) => { const r = d.find((x) => x.cost === cost && x.n_layers === L && x.n_qubits === q); return r ? pos(r.grad_var) : null; }),
         lineStyle: { width: 2, color: css(ramp[i % ramp.length]) }, itemStyle: { color: css(ramp[i % ramp.length]), borderColor: css("--surface"), borderWidth: 2 } })),
     }), true);
   });
@@ -495,14 +530,16 @@ function renderSpeed() {
     series: keys.map((k, i) => ({ name: name(k), type: "line", symbolSize: 8, connectNulls: false,
       lineStyle: { width: 2, color: css(`--s${i + 1}`), type: k.startsWith("pennylane") ? "dashed" : "solid" },
       itemStyle: { color: css(`--s${i + 1}`), borderColor: css("--surface"), borderWidth: 2 },
-      data: qs.map((q) => { const r = d.find((x) => `${x.backend}|${x.diff_method}|${x.device}` === k && x.n_qubits === q); return r ? r.step_time * 1000 : null; }) })),
+      data: qs.map((q) => { const r = d.find((x) => `${x.backend}|${x.diff_method}|${x.device}` === k && x.n_qubits === q); return r ? pos(r.step_time * 1000) : null; }) })),
   }), true);
 }
 
 // ---------------------------------------------------------------- 12 кубитов
 function renderQ12() {
-  const v = data.vision, d = data.vision_q12;
-  if (!d || !d.summary.length) { placeholder("ch-q12", "Расчёт идёт на Tesla V100 — данные появятся автоматически"); return; }
+  const d0 = data.vision_q12;
+  if (!d0 || !d0.summary.length) { placeholder("ch-q12", "Расчёт идёт на Tesla V100 — данные появятся автоматически"); return; }
+  const d = { summary: pickEnc(d0.summary, "q12").rows };
+  const v = data.vision ? { summary: data.vision.summary.filter((r) => !r.enc || r.enc === "-" || r.enc === pickEnc(d0.summary).enc) } : null;
   const dss = Object.keys(DS_LABEL).filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("q12-ds", dss, DS_LABEL);
   const ds = $("q12-ds").value;
@@ -546,12 +583,13 @@ function renderInit() {
       xAxis: { ...base().xAxis, type: "category", data: qs.map(String), name: "Кубиты", nameLocation: "middle", nameGap: 26 },
       yAxis: { ...base().yAxis, type: "log", name: "Var[∂C/∂θ]", axisLabel: { color: css("--muted"), formatter: (v) => Number(v).toExponential(0) } },
       series: inits.map((it) => ({ name: INIT_LABEL[it] || it, type: "line", symbolSize: 8,
-        data: qs.map((q) => { const r = rows.find((x) => x.n_qubits === q && x.init === it); return r ? r.grad_var : null; }),
+        data: qs.map((q) => { const r = rows.find((x) => x.n_qubits === q && x.init === it); return r ? pos(r.grad_var) : null; }),
         lineStyle: { width: 2, color: cols[it] }, itemStyle: { color: cols[it], borderColor: css("--surface"), borderWidth: 2 } })),
     }), true);
   });
-  const d = data.init;
-  if (!d || !d.summary.length) { placeholder("ch-init", "Расчёт идёт — данные появятся автоматически"); return; }
+  const d0 = data.init;
+  if (!d0 || !d0.summary.length) { placeholder("ch-init", "Расчёт идёт — данные появятся автоматически"); return; }
+  const d = { summary: pickEnc(d0.summary, "init").rows };
   const dss = ["breast_cancer", "moons", "wine"].filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("init-ds", dss, DS_LABEL);
   const ds = $("init-ds").value, m = $("init-model").value;
@@ -572,11 +610,102 @@ function renderInit() {
   }), true);
 }
 
+// ---------------------------------------------------------------- находка: encoder
+function renderEncoder() {
+  const d = data.encoder;
+  if (!d || !d.summary.length) { placeholder("ch-encoder", "Расчёт идёт…"); return; }
+  const order = ["iris", "wine", "breast_cancer", "moons", "circles", "vision:mnist", "vision:fashion", "vision:pneumonia", "vision:breast"];
+  const ds = order.filter((x) => d.summary.some((r) => r.dataset === x && r.model === "hybrid"));
+  const encs = ["pi", "pi2", "bn"].filter((e) => d.summary.some((r) => r.enc === e && r.model === "hybrid"));
+  const cols = { pi: css("--s8"), pi2: css("--r350"), bn: css("--s1") };
+  const get = (x, m, e) => d.summary.find((r) => r.dataset === x && r.model === m && r.enc === e) || {};
+  const c = chart("ch-encoder");
+  if (c) c.setOption(base({
+    grid: { left: 48, right: 16, top: 40, bottom: 64 },
+    tooltip: { ...base().tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: css("--grid"), opacity: 0.35 } },
+      formatter: (ps) => `<b>${ps[0].axisValue}</b><br>` + ps.map((p) => {
+        const r = get(ds[p.dataIndex], "hybrid", encs[p.seriesIndex]);
+        return tipRow(p.color, `${fmt(r.accuracy_mean)} ± ${fmt(r.accuracy_std)}`, p.seriesName);
+      }).join("") },
+    xAxis: { ...base().xAxis, type: "category", data: ds.map((x) => DS_LABEL[x]), axisLabel: { color: css("--muted"), rotate: 30, fontSize: 11 } },
+    yAxis: { ...base().yAxis, type: "value", min: 0, max: 1, name: "Accuracy" },
+    series: encs.map((e) => ({ name: ENC_LABEL[e], type: "bar", barMaxWidth: 16, barGap: "15%",
+      itemStyle: { color: cols[e], borderRadius: [4, 4, 0, 0] }, data: ds.map((x) => get(x, "hybrid", e).accuracy_mean) })),
+  }), true);
+  table("enc-table", ["Набор", ...encs.map((e) => "Hybrid, " + ENC_LABEL[e]), "Bottleneck"],
+    ds.map((x) => [DS_LABEL[x], ...encs.map((e) => fmt(get(x, "hybrid", e).accuracy_mean)),
+      fmt((get(x, "bottleneck", encs.includes("bn") ? "bn" : encs[encs.length - 1])).accuracy_mean)]));
+}
+
+// ---------------------------------------------------------------- галерея рисунков
+function renderGallery() {
+  const g = $("gallery-grid"), f = data.figures;
+  if (!g) return;
+  g.textContent = "";
+  if (!f || !f.length) { const p = document.createElement("p"); p.className = "note"; p.textContent = "Рисунки появятся после первого прогона анализа."; g.appendChild(p); return; }
+  f.forEach((it) => {
+    const a = document.createElement("a"); a.href = `figures/${it.file}`; a.target = "_blank"; a.rel = "noopener";
+    const img = document.createElement("img"); img.loading = "lazy"; img.src = `figures/${it.file}?t=${it.mtime || ""}`; img.alt = it.title;
+    const s = document.createElement("span"); s.textContent = it.title;
+    a.append(img, s); g.appendChild(a);
+  });
+}
+
+// какие варианты encoder'а уже есть в данных (по гибридной модели во всех сериях)
+function encAvailability() {
+  const cnt = { bn: 0, pi2: 0, pi: 0 };
+  ["tabular", "vision", "vision_q12", "sweep", "ablation", "shots", "init"].forEach((k) => {
+    const d = data[k];
+    if (!d || !d.summary) return;
+    d.summary.forEach((r) => { if (r.model === "hybrid" && cnt[r.enc] != null) cnt[r.enc] += r.runs || 1; });
+  });
+  return cnt;
+}
+function renderEncSwitch() {
+  const cnt = encAvailability(), sel = $("enc");
+  [...sel.options].forEach((o) => {
+    const has = cnt[o.value] > 0;
+    o.disabled = !has;
+    o.textContent = ENC_LABEL[o.value] + (has ? "" : " — ещё считается");
+  });
+  const shown = cnt[ENC] > 0 ? ENC : ["bn", "pi2", "pi"].find((e) => cnt[e] > 0);
+  if (shown && sel.value !== shown && !(cnt[sel.value] > 0)) sel.value = shown;
+  const st = $("enc-status");
+  if (st) {
+    const fb = [...document.querySelectorAll(".enc-tag.fallback")].length;
+    st.textContent = `Выбран encoder ${ENC_LABEL[ENC]}.` + (fb ? ` В ${fb} из ${document.querySelectorAll(".enc-tag").length} экспериментов он ещё считается — там временно показан другой вариант (см. метку у заголовка); графики обновятся автоматически.` : " Во всех экспериментах показан именно он.");
+  }
+}
+
+$("enc").value = ENC;
+$("enc").addEventListener("change", (e) => { ENC = e.target.value; try { localStorage.setItem("enc", ENC); } catch (x) {} renderAll(); });
 ["q12-ds"].forEach((id) => $(id).addEventListener("change", renderQ12));
 ["init-ds", "init-model"].forEach((id) => $(id).addEventListener("change", renderInit));
 ["vis-ds", "vis-q"].forEach((id) => $(id).addEventListener("change", renderVision));
 ["sw-ds", "sw-model"].forEach((id) => $(id).addEventListener("change", renderSweep));
 $("ab-ds").addEventListener("change", renderAblation);
 
+
+// ---------------------------------------------------------------- вкладки (#/страница/эксперимент)
+const PAGES = ["home", "library", "results", "encoder", "roadmap", "live", "gallery"];
+const EXPS = ["tabular", "vision", "q12", "sweep", "ablation", "shots", "barren", "init", "speed"];
+function route() {
+  const parts = location.hash.replace(/^#\/?/, "").split("/");
+  let page = PAGES.includes(parts[0]) ? parts[0] : "home";
+  // старые якоря (#tabular и т.п.) ведут на вкладку эксперимента
+  if (EXPS.includes(parts[0])) { page = "results"; parts[1] = parts[0]; }
+  const exp = EXPS.includes(parts[1]) ? parts[1] : "tabular";
+  PAGES.forEach((p) => $(`page-${p}`)?.classList.toggle("active", p === page));
+  document.querySelectorAll("#tabs a").forEach((a) => a.classList.toggle("active", a.dataset.page === page));
+  document.querySelectorAll("#page-results article.exp").forEach((a) => a.classList.toggle("active", a.id === exp));
+  document.querySelectorAll("#exp-nav a").forEach((a) => a.classList.toggle("active", a.dataset.exp === exp));
+  $("enc").closest(".enc-switch").style.visibility = ["results", "encoder", "home"].includes(page) ? "visible" : "hidden";
+  window.scrollTo({ top: 0, behavior: "instant" });
+  // графики в скрытых вкладках имели нулевой размер — пересчитываем
+  requestAnimationFrame(() => { renderAll(); Object.values(charts).forEach((c) => c.resize()); });
+}
+window.addEventListener("hashchange", route);
+
+route();
 loadAll();
 setInterval(loadAll, 30000);

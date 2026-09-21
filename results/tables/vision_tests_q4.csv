@@ -1,0 +1,11 @@
+dataset,n_train,vs,mean_diff,wins,losses,p_value,significant
+vision:breast,436,bottleneck,-0.08076923076923104,0,5,0.0625,False
+vision:breast,436,classical_matched,-0.07948717948717984,0,4,0.125,False
+vision:breast,436,quantum,-0.04700854700854736,0,3,0.25,False
+vision:fashion,2000,bottleneck,-0.5911250000000001,0,8,0.0078125,True
+vision:fashion,2000,classical_matched,-0.639125,0,8,0.0078125,True
+vision:mnist,2000,bottleneck,-0.709125,0,8,0.0078125,True
+vision:mnist,2000,classical_matched,-0.7398750000000001,0,8,0.0078125,True
+vision:pneumonia,2000,bottleneck,-0.2192307692307689,0,5,0.0625,False
+vision:pneumonia,2000,classical_matched,-0.23076923076923025,0,5,0.0625,False
+vision:pneumonia,2000,quantum,-0.136217948717948,0,1,1.0,False

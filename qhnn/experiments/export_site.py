@@ -61,12 +61,29 @@ def progress() -> dict:
     return out
 
 
+ENCS = ["bn", "pi2", "pi"]
+
+
+def enc_tests(df, keys):
+    """Hybrid против остальных отдельно для каждого варианта encoder'а."""
+    out = []
+    for e in ENCS:
+        sub = df[(df.enc == "-") | (df.enc == e)]
+        if not (sub.model == "hybrid").any():
+            continue
+        t = paired_tests(sub, keys)
+        if not t.empty:
+            t["enc"] = e
+            out.append(t)
+    return _records(pd.concat(out)) if out else []
+
+
 def tabular():
     df = _load("tabular")
     if df is None:
         return None
-    return {"summary": _records(mean_std(df, ["dataset", "model"])),
-            "tests": _records(paired_tests(df, ["dataset"])),
+    return {"summary": _records(mean_std(df, ["dataset", "model", "enc"])),
+            "tests": enc_tests(df, ["dataset"]),
             "runs": int(len(df))}
 
 
@@ -74,7 +91,7 @@ def sweep():
     df = _load("sweep")
     if df is None:
         return None
-    s = mean_std(df, ["dataset", "model", "n_qubits", "n_layers"],
+    s = mean_std(df, ["dataset", "model", "enc", "n_qubits", "n_layers"],
                  cols=("accuracy", "f1", "train_time", "time_per_epoch", "epochs", "n_params"))
     return {"summary": _records(s), "runs": int(len(df))}
 
@@ -83,7 +100,7 @@ def ablation():
     df = _load("ablation")
     if df is None:
         return None
-    s = mean_std(df, ["dataset", "model", "encoding", "ansatz", "reupload"])
+    s = mean_std(df, ["dataset", "model", "enc", "encoding", "ansatz", "reupload"])
     return {"summary": _records(s), "runs": int(len(df))}
 
 
@@ -93,7 +110,7 @@ def shots():
         return None
     df = df.copy()
     df["shots"] = df["shots"].fillna(0).astype(int)
-    return {"summary": _records(mean_std(df, ["dataset", "shots"])), "runs": int(len(df))}
+    return {"summary": _records(mean_std(df, ["dataset", "enc", "shots"])), "runs": int(len(df))}
 
 
 def vision():
@@ -103,17 +120,14 @@ def vision():
     df = df.copy()
     df["n_qubits"] = df.get("n_qubits", pd.Series(dtype=float)).fillna(0).astype(int)
     df["n_train"] = df[["n_train", "n_train_actual"]].min(axis=1)
-    df = df.drop_duplicates(["dataset", "model", "n_qubits", "n_train", "seed"])
-    s = mean_std(df, ["dataset", "model", "n_qubits", "n_train"])
+    df = df.drop_duplicates(["dataset", "model", "enc", "n_qubits", "n_train", "seed"])
+    s = mean_std(df, ["dataset", "model", "enc", "n_qubits", "n_train"])
     tests = []
     for q in (4, 8):
-        t = paired_tests(df[df.n_qubits.isin([0, q])], ["dataset", "n_train"])
-        if not t.empty:
+        for t in enc_tests(df[df.n_qubits.isin([0, q])], ["dataset", "n_train"]):
             t["n_qubits"] = q
             tests.append(t)
-    return {"summary": _records(s),
-            "tests": _records(pd.concat(tests)) if tests else [],
-            "runs": int(len(df))}
+    return {"summary": _records(s), "tests": tests, "runs": int(len(df))}
 
 
 def vision_q12():
@@ -122,20 +136,73 @@ def vision_q12():
         return None
     df = df.copy()
     df["n_train"] = df[["n_train", "n_train_actual"]].min(axis=1)
-    return {"summary": _records(mean_std(df, ["dataset", "model", "n_train"])), "runs": int(len(df))}
+    return {"summary": _records(mean_std(df, ["dataset", "model", "enc", "n_train"])), "runs": int(len(df))}
 
 
 def init_exp():
     df = _load("init")
     if df is None:
         return None
-    s = mean_std(df, ["dataset", "model", "n_qubits", "n_layers", "init"])
+    s = mean_std(df, ["dataset", "model", "enc", "n_qubits", "n_layers", "init"])
     return {"summary": _records(s), "runs": int(len(df))}
+
+
+def encoder():
+    rows = []
+    for name in ("tabular", "vision"):
+        df = _load(name)
+        if df is None:
+            continue
+        df = df[df.model.isin(["hybrid", "bottleneck"])].copy()
+        if "n_qubits" in df:
+            df = df[df.n_qubits.fillna(4).astype(int) == 4]
+        if "n_train" in df:
+            df["n_train"] = df[["n_train", "n_train_actual"]].min(axis=1)
+            df = df[df.n_train.isna() | (df.n_train >= 1000)]
+        g = df.groupby(["dataset", "model", "enc"])
+        s = g[["accuracy", "class_coverage"]].agg(["mean", "std"])
+        s.columns = [f"{a}_{b}" for a, b in s.columns]
+        s["runs"] = g.size()
+        rows.append(s.reset_index())
+    return {"summary": _records(pd.concat(rows))} if rows else None
 
 
 def csv_records(name):
     p = RES / f"{name}.csv"
     return _records(pd.read_csv(p)) if p.exists() else None
+
+
+FIG_TITLES = {
+    "tabular_accuracy": "Табличные данные: accuracy пяти моделей",
+    "tabular_curves": "Табличные данные: кривые обучения",
+    "vision_lowdata_q4": "Изображения: малые выборки, 4 кубита",
+    "vision_lowdata_q8": "Изображения: малые выборки, 8 кубитов",
+    "vision_q12": "Изображения: 4, 8 и 12 кубитов",
+    "sweep_heatmap": "Кубиты × глубина: accuracy",
+    "sweep_time": "Кубиты × глубина: время эпохи",
+    "ablation": "Абляция квантового слоя",
+    "shots": "Конечное число измерений",
+    "barren": "Barren plateaus",
+    "barren_init": "Barren plateaus: стратегии инициализации",
+    "init": "Инициализация и точность глубоких схем",
+    "encoder": "Находка: масштаб encoder'а",
+    "speed": "Скорость симулятора против PennyLane",
+}
+
+
+def figures(site_dir: Path):
+    """Копирует PNG из results/figures в site/figures и возвращает их список."""
+    import shutil
+    src = RES / "figures"
+    dst = site_dir / "figures"
+    dst.mkdir(parents=True, exist_ok=True)
+    items = []
+    for key, title in FIG_TITLES.items():
+        f = src / f"{key}.png"
+        if f.exists():
+            shutil.copy2(f, dst / f.name)
+            items.append({"file": f.name, "title": title, "mtime": int(f.stat().st_mtime)})
+    return items or None
 
 
 def main():
@@ -146,9 +213,9 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     parts = {"progress": progress(), "tabular": tabular(), "sweep": sweep(),
              "ablation": ablation(), "shots": shots(), "vision": vision(),
-             "vision_q12": vision_q12(), "init": init_exp(),
+             "vision_q12": vision_q12(), "init": init_exp(), "encoder": encoder(),
              "barren": csv_records("barren"), "barren_init": csv_records("barren_init"),
-             "speed": csv_records("speed")}
+             "speed": csv_records("speed"), "figures": figures(Path(a.out).parent)}
     for name, data in parts.items():
         if data is None:
             continue

@@ -39,13 +39,42 @@ plt.rcParams.update({"figure.dpi": 110, "savefig.dpi": 200, "font.size": 10,
 warnings.filterwarnings("ignore")
 
 
+ENC_MODELS = {"hybrid", "bottleneck"}
+
+
+def with_enc(df: pd.DataFrame) -> pd.DataFrame:
+    """Столбец enc: у hybrid/bottleneck без enc (первые запуски) — "pi", у остальных — "-"."""
+    df = df.copy()
+    if "enc" not in df:
+        df["enc"] = None
+    is_enc = df["model"].isin(ENC_MODELS)
+    df.loc[is_enc & df["enc"].isna(), "enc"] = "pi"
+    df.loc[~is_enc, "enc"] = "-"
+    return df
+
+
+PRIMARY_ENCS = ("bn", "pi2", "pi")
+
+
+def primary(df: pd.DataFrame) -> pd.DataFrame:
+    """Оставляет модели без encoder'а и один (основной из доступных) вариант encoder'а."""
+    if df is None or "enc" not in df:
+        return df
+    avail = set(df.loc[df.enc != "-", "enc"])
+    e = next((x for x in PRIMARY_ENCS if x in avail), None)
+    return df[(df.enc == "-") | (df.enc == e)]
+
+
 def _load(name):
     """Результаты серии: <name>.jsonl и <name>.gpu.jsonl (если считалось на GPU)."""
     parts = [pd.read_json(p, lines=True) for p in sorted(RES.glob(f"{name}*.jsonl"))
              if "_history" not in p.name or name.endswith("_history")]
     if parts:
         df = pd.concat(parts, ignore_index=True)
-        return df if name.endswith("_history") else df.drop_duplicates("run_id")
+        if name.endswith("_history"):
+            return df
+        df = df.drop_duplicates("run_id")
+        return with_enc(df) if "model" in df else df
     p = RES / f"{name}.csv"
     return pd.read_csv(p) if p.exists() else None
 
@@ -94,7 +123,7 @@ def paired_tests(df, keys, ref="hybrid", metric="accuracy"):
 
 # ---------------------------------------------------------------------------
 def tabular():
-    df = _load("tabular")
+    df = primary(_load("tabular"))
     if df is None:
         return
     print("[tabular]")
@@ -133,7 +162,7 @@ def tabular():
 
 
 def sweep():
-    df = _load("sweep")
+    df = primary(_load("sweep"))
     if df is None:
         return
     print("[sweep]")
@@ -176,7 +205,7 @@ def sweep():
 
 
 def ablation():
-    df = _load("ablation")
+    df = primary(_load("ablation"))
     if df is None:
         return
     print("[ablation]")
@@ -201,7 +230,7 @@ def ablation():
 
 
 def shots():
-    df = _load("shots")
+    df = primary(_load("shots"))
     if df is None:
         return
     print("[shots]")
@@ -221,7 +250,7 @@ def shots():
 
 
 def vision():
-    df = _load("vision")
+    df = primary(_load("vision"))
     if df is None:
         return
     print("[vision]")
@@ -286,10 +315,118 @@ def speed():
     _save(fig, "speed")
 
 
+def encoder():
+    rows = []
+    for name in ("tabular", "vision"):
+        df = _load(name)
+        if df is None:
+            continue
+        df = df[df.model == "hybrid"].copy()
+        if "n_qubits" in df:
+            df = df[df.n_qubits.fillna(4).astype(int) == 4]
+        if "n_train" in df:
+            df["n_train"] = df[["n_train", "n_train_actual"]].min(axis=1)
+            df = df[df.n_train.isna() | (df.n_train >= 1000)]
+        rows.append(df)
+    if not rows:
+        return
+    print("[encoder]")
+    df = pd.concat(rows)
+    g = df.groupby(["dataset", "enc"]).accuracy.agg(["mean", "std"]).reset_index()
+    _table(g, "encoder_summary")
+    datasets = [d for d in DS_LABEL if d in set(g.dataset)]
+    encs = [e for e in ("pi", "pi2", "bn") if e in set(g.enc)]
+    lab = {"pi": "π·tanh (исходный)", "pi2": "(π/2)·tanh", "bn": "BN + (π/2)·tanh"}
+    col = {"pi": "#e34948", "pi2": "#86b6ef", "bn": "#2a78d6"}
+    fig, ax = plt.subplots(figsize=(10, 3.8))
+    w = 0.8 / len(encs)
+    for i, e in enumerate(encs):
+        r = g[g.enc == e].set_index("dataset").reindex(datasets)
+        ax.bar(np.arange(len(datasets)) + i * w - 0.4 + w / 2, r["mean"], w, yerr=r["std"],
+               capsize=2, color=col[e], label=lab[e])
+    ax.set_xticks(range(len(datasets)), [DS_LABEL[d] for d in datasets], rotation=20)
+    ax.set_ylabel("Accuracy (Hybrid QNN)"); ax.set_ylim(0, 1.02)
+    ax.legend(fontsize=8, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0))
+    _save(fig, "encoder")
+
+
+def barren_init():
+    p = RES / "barren_init.csv"
+    if not p.exists():
+        return
+    df = pd.read_csv(p)
+    print("[barren_init]")
+    lab = {"uniform": "uniform U[0, 2π)", "small": "small N(0, 0.1²)", "zero": "zero"}
+    Ls = sorted(df.n_layers.unique())
+    fig, axes = plt.subplots(len(Ls), 2, figsize=(9, 3.2 * len(Ls)), squeeze=False, sharey="row")
+    for i, L in enumerate(Ls):
+        for j, cost in enumerate(("local", "global")):
+            ax = axes[i][j]
+            for init in df.init.unique():
+                r = df[(df.cost == cost) & (df.n_layers == L) & (df.init == init)].sort_values("n_qubits")
+                ax.plot(r.n_qubits, r.grad_var, marker="o", label=lab.get(init, init))
+            ax.set_yscale("log"); ax.set_xlabel("Число кубитов")
+            ax.set_title(f"{'Локальная' if cost == 'local' else 'Глобальная'} стоимость, L = {L}", fontsize=10)
+        axes[i][0].set_ylabel("Var[∂C/∂θ]")
+    axes[0][0].legend(fontsize=8)
+    _save(fig, "barren_init")
+
+
+def init_exp():
+    df = primary(_load("init"))
+    if df is None:
+        return
+    print("[init]")
+    s = mean_std(df, ["dataset", "model", "n_qubits", "n_layers", "init"])
+    _table(s, "init_summary")
+    cfgs = sorted({(q, L) for q, L in zip(s.n_qubits, s.n_layers)})
+    datasets = [d for d in DS_LABEL if d in set(s.dataset)]
+    fig, axes = plt.subplots(1, len(datasets), figsize=(4.2 * len(datasets), 3.4), squeeze=False, sharey=True)
+    for ax, d in zip(axes[0], datasets):
+        for i, init in enumerate(("uniform", "small")):
+            r = s[(s.dataset == d) & (s.model == "hybrid") & (s.init == init)]
+            r = r.set_index(["n_qubits", "n_layers"]).reindex(cfgs)
+            ax.bar(np.arange(len(cfgs)) + (i - 0.5) * 0.38, r.accuracy_mean, 0.38, yerr=r.accuracy_std,
+                   capsize=2, label=init, color=["#2a78d6", "#eb6834"][i])
+        ax.set_xticks(range(len(cfgs)), [f"{q}q, L={L}" for q, L in cfgs], fontsize=8)
+        ax.set_title(f"Hybrid — {DS_LABEL[d]}", fontsize=10); ax.set_ylim(0.4, 1.0)
+    axes[0][0].set_ylabel("Accuracy"); axes[0][0].legend(fontsize=8)
+    _save(fig, "init")
+
+
+def vision_q12():
+    q12 = primary(_load("vision_q12"))
+    v = primary(_load("vision"))
+    if q12 is None:
+        return
+    print("[vision_q12]")
+    df = pd.concat([v, q12]) if v is not None else q12
+    df = df[df.model == "hybrid"].copy()
+    df["n_qubits"] = df["n_qubits"].fillna(0).astype(int)
+    df["n_train"] = df[["n_train", "n_train_actual"]].min(axis=1)
+    ns = sorted(set(q12.n_train))
+    df = df[df.n_train.isin(ns)]
+    s = df.groupby(["dataset", "n_qubits", "n_train"]).accuracy.agg(["mean", "std"]).reset_index()
+    _table(s, "vision_q12_summary")
+    datasets = [d for d in DS_LABEL if d in set(s.dataset)]
+    fig, axes = plt.subplots(1, len(datasets), figsize=(4 * len(datasets), 3.3), squeeze=False)
+    for ax, d in zip(axes[0], datasets):
+        for n, c in zip(ns, ["#86b6ef", "#2a78d6", "#104281"]):
+            r = s[(s.dataset == d) & (s.n_train == n)].sort_values("n_qubits")
+            ax.errorbar(r.n_qubits, r["mean"], r["std"], marker="o", capsize=2, color=c, label=f"{n} примеров")
+        ax.set_title(DS_LABEL[d], fontsize=10); ax.set_xlabel("Кубиты"); ax.set_xticks([4, 8, 12])
+    axes[0][0].set_ylabel("Accuracy (Hybrid QNN)"); axes[0][0].legend(fontsize=8)
+    _save(fig, "vision_q12")
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
-    for f in (tabular, sweep, ablation, shots, vision, barren, speed):
-        f()
+    for f in (tabular, sweep, ablation, shots, vision, vision_q12, init_exp, encoder,
+              barren, barren_init, speed):
+        try:
+            f()
+        except Exception as e:  # один сломанный раздел не должен ронять остальные
+            print(f"  ! {f.__name__}: {e}")
 
 
 if __name__ == "__main__":

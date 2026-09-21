@@ -4,3 +4,4 @@ __pycache__/
 results/raw/
 results/features/
 .pytest_cache/
+.tmp/
