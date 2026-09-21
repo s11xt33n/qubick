@@ -1,0 +1,17 @@
+# Эксперимент 1. Честное сравнение пяти моделей на табличных данных.
+# 10 seed'ов: каждый seed меняет разбиение данных и инициализацию.
+name: tabular
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+log_history: true
+grid:
+  dataset: [iris, wine, breast_cancer, moons, circles]
+  model: [classical, classical_matched, bottleneck, quantum, hybrid]
+fixed:
+  n_qubits: 4
+  n_layers: 2
+  encoding: angle
+  ansatz: strong
+  epochs: 300
+  patience: 30
+  lr: 0.01
+  batch_size: 32

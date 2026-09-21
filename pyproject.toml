@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qhnn"
+version = "0.2.0"
+description = "Библиотека для гибридных квантово-классических нейронных сетей на PyTorch"
+authors = [{ name = "Филадельфов Т. Г." }]
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",
+    "numpy",
+    "scikit-learn",
+    "pandas",
+    "matplotlib",
+    "pyyaml",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+pennylane = ["pennylane>=0.38"]
+vision = ["torchvision", "medmnist"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["qhnn*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

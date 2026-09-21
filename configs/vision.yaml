@@ -1,0 +1,18 @@
+# Эксперимент 5. Гибридное transfer learning на изображениях:
+# ResNet18 (заморожена) -> голова. Зависимость от объёма обучающей выборки.
+name: vision
+seeds: [0, 1, 2, 3, 4]
+log_history: false
+grid:
+  dataset: [vision:mnist, vision:fashion, vision:pneumonia]
+  model: [classical, classical_matched, bottleneck, quantum, hybrid]
+  n_train: [50, 100, 250, 500, 1000, 2000]
+  n_qubits: [4, 8]
+fixed:
+  n_layers: 2
+  encoding: angle
+  ansatz: strong
+  epochs: 150
+  patience: 20
+  lr: 0.01
+  batch_size: 32

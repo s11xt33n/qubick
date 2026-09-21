@@ -1,0 +1,17 @@
+# Эксперимент 3. Абляция компонентов квантового слоя:
+# способ кодирования, тип анзаца, повторная загрузка данных.
+name: ablation
+seeds: [0, 1, 2, 3, 4]
+grid:
+  dataset: [moons, circles, breast_cancer]
+  model: [quantum, hybrid]
+  encoding: [angle, angle_x, dense]
+  ansatz: [strong, basic, hea]
+  reupload: [false, true]
+fixed:
+  n_qubits: 4
+  n_layers: 2
+  epochs: 300
+  patience: 30
+  lr: 0.01
+  batch_size: 32

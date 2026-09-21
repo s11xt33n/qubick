@@ -1,0 +1,15 @@
+# Быстрая проверка, что всё работает (секунды)
+name: smoke
+seeds: [0]
+grid:
+  dataset: [iris, wine]
+  model: [classical, classical_matched, bottleneck, quantum, hybrid]
+fixed:
+  n_qubits: 4
+  n_layers: 2
+  encoding: angle
+  ansatz: strong
+  epochs: 30
+  patience: 10
+  lr: 0.01
+  batch_size: 32

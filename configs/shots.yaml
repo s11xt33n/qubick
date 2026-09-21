@@ -1,0 +1,19 @@
+# Эксперимент 4. Обучение с конечным числом измерений (как на реальном
+# квантовом процессоре): градиенты по parameter-shift, <Z> оценивается по shots.
+# shots: null — точные ожидания (идеальный симулятор).
+name: shots
+seeds: [0, 1, 2, 3, 4]
+grid:
+  dataset: [moons, breast_cancer]
+  model: [hybrid]
+  shots: [null, 10000, 1000, 100]
+fixed:
+  n_qubits: 4
+  n_layers: 2
+  encoding: angle
+  ansatz: strong
+  diff_method: parameter-shift
+  epochs: 150
+  patience: 20
+  lr: 0.01
+  batch_size: 32

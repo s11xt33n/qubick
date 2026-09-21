@@ -1,0 +1,15 @@
+# Эксперимент 2. Влияние числа кубитов и глубины схемы.
+name: sweep
+seeds: [0, 1, 2, 3, 4]
+grid:
+  dataset: [breast_cancer, wine, moons]
+  model: [hybrid, quantum]
+  n_qubits: [2, 4, 6, 8]
+  n_layers: [1, 2, 4]
+fixed:
+  encoding: angle
+  ansatz: strong
+  epochs: 300
+  patience: 30
+  lr: 0.01
+  batch_size: 32
