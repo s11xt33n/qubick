@@ -39,19 +39,28 @@ try { ENC = localStorage.getItem("enc") || "bn"; } catch (e) {}
 
 // строки сводки для выбранного encoder'а: модели без encoder'а (enc = "-") остаются всегда;
 // если выбранного варианта в серии ещё нет — берём ближайший доступный
-function pickEnc(rows, section) {
-  const avail = uniq(rows.filter((r) => r.enc && r.enc !== "-").map((r) => r.enc));
-  const e = avail.includes(ENC) ? ENC : ["bn", "pi2", "pi"].find((x) => avail.includes(x));
-  if (section) tagSection(section, e);
+// Выбор варианта encoder'а для среза данных, который реально рисуется.
+// key(r) — «точка» графика (датасет, размер выборки, ...). Выбранный пользователем
+// вариант берётся, если он покрывает столько же точек, сколько самый полный;
+// иначе показывается самый полный, а в метке — сколько точек выбранного уже готово.
+function pickEnc(rows, section, key = (r) => r.dataset) {
+  const hyb = rows.filter((r) => r.enc && r.enc !== "-" && (!r.model || r.model === "hybrid"));
+  const cov = {};
+  ["bn", "pi2", "pi"].forEach((e) => { cov[e] = new Set(hyb.filter((r) => r.enc === e).map(key)).size; });
+  const best = Math.max(0, ...Object.values(cov));
+  const e = best === 0 ? undefined : (cov[ENC] === best ? ENC : ["bn", "pi2", "pi"].find((x) => cov[x] === best));
+  if (section) tagSection(section, e, cov[ENC], best);
   return { enc: e, rows: rows.filter((r) => !r.enc || r.enc === "-" || r.enc === e) };
 }
 // метка в заголовке эксперимента: какой encoder гибрида реально показан
-function tagSection(section, e) {
+function tagSection(section, e, have = 0, total = 0) {
   const h = document.querySelector(`#${section} .exp-title`);
-  if (!h || !e) return;
+  if (!h) return;
   let t = h.querySelector(".enc-tag");
   if (!t) { t = document.createElement("span"); t.className = "enc-tag"; h.appendChild(t); }
-  t.textContent = `encoder: ${ENC_LABEL[e]}` + (e !== ENC ? " · выбранный ещё считается" : "");
+  if (!e) { t.textContent = "encoder: данные ещё считаются"; t.classList.add("fallback"); return; }
+  t.textContent = `encoder: ${ENC_LABEL[e]}` + (e === ENC ? "" :
+    have > 0 ? ` · выбранный посчитан частично (${have} из ${total})` : " · выбранный ещё считается");
   t.classList.toggle("fallback", e !== ENC);
 }
 function encNote(id, e) {
@@ -83,7 +92,13 @@ function chart(id) {
   if (!charts[id]) charts[id] = echarts.init(el, null, { renderer: "svg" });
   return charts[id];
 }
-window.addEventListener("resize", () => Object.values(charts).forEach((c) => c.resize()));
+// высота шапки меняется (одна или две строки) — от неё зависят липкие вкладки экспериментов
+function syncHeader() {
+  const h = document.querySelector("header.top");
+  if (h) document.documentElement.style.setProperty("--hdr", h.offsetHeight + "px");
+}
+window.addEventListener("resize", () => { syncHeader(); Object.values(charts).forEach((c) => c.resize()); });
+syncHeader();
 
 function base(extra = {}) {
   const ink2 = css("--ink-2"), muted = css("--muted"), grid = css("--grid"), axis = css("--axis");
@@ -96,8 +111,8 @@ function base(extra = {}) {
     backgroundColor: "transparent",
     textStyle: { fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', color: css("--ink") },
     grid: { left: 56, right: 20, top: 64, bottom: 44, containLabel: false },
-    legend: { top: 0, left: 0, textStyle: { color: ink2, fontSize: 12 }, itemWidth: 14, itemHeight: 8,
-      icon: "roundRect" },
+    legend: { type: "scroll", top: 0, left: 0, right: 0, textStyle: { color: ink2, fontSize: 12 }, itemWidth: 14, itemHeight: 8,
+      icon: "roundRect", pageIconColor: css("--ink-2"), pageTextStyle: { color: muted } },
     tooltip: {
       backgroundColor: css("--surface"), borderColor: css("--border"), borderWidth: 1,
       textStyle: { color: css("--ink"), fontSize: 12 }, extraCssText: "box-shadow:0 2px 10px rgba(0,0,0,.12)",
@@ -360,16 +375,17 @@ function renderTabular() {
 function renderVision() {
   const d0 = data.vision;
   if (!d0 || !d0.summary.length) { placeholder("ch-vision", "Расчёт идёт — данные появятся здесь автоматически"); return; }
-  const pk = pickEnc(d0.summary, "vision");
-  const d = { summary: pk.rows, tests: (d0.tests || []).filter((t) => t.enc === pk.enc) };
-  const dss = Object.keys(DS_LABEL).filter((x) => x.startsWith("vision:") && d.summary.some((r) => r.dataset === x));
+  const dss = Object.keys(DS_LABEL).filter((x) => x.startsWith("vision:") && d0.summary.some((r) => r.dataset === x));
   fillSelect("vis-ds", dss, DS_LABEL);
   const ds = $("vis-ds").value;
   // показываем только те числа кубитов, для которых уже есть результаты
-  const qAvail = uniq(d.summary.filter((r) => r.dataset === ds && r.n_qubits > 0).map((r) => r.n_qubits)).sort((a, b) => a - b);
+  const qAvail = uniq(d0.summary.filter((r) => r.dataset === ds && r.n_qubits > 0).map((r) => r.n_qubits)).sort((a, b) => a - b);
   fillSelect("vis-q", qAvail.map(String));
   const q = +$("vis-q").value;
-  const rows = d.summary.filter((r) => r.dataset === ds && (r.n_qubits === 0 || r.n_qubits === q));
+  const slice = d0.summary.filter((r) => r.dataset === ds && (r.n_qubits === 0 || r.n_qubits === q));
+  const pk = pickEnc(slice, "vision", (r) => r.n_train);
+  const d = { summary: pk.rows, tests: (d0.tests || []).filter((t) => t.enc === pk.enc) };
+  const rows = d.summary;
   const ns = uniq(rows.map((r) => r.n_train)).sort((a, b) => a - b);
   const models = MODELS.filter((m) => rows.some((r) => r.model === m));
   const get = (m, n) => rows.find((r) => r.model === m && r.n_train === n) || {};
@@ -402,7 +418,8 @@ function renderVision() {
 function renderSweep() {
   const d0 = data.sweep;
   if (!d0 || !d0.summary.length) { placeholder("ch-sweep-heat", "Расчёт идёт…"); return; }
-  const d = { summary: pickEnc(d0.summary, "sweep").rows };
+  const d = { summary: pickEnc(d0.summary.filter((r) => r.dataset === ($("sw-ds").value || "breast_cancer")), "sweep",
+    (r) => `${r.n_qubits}|${r.n_layers}`).rows.concat(d0.summary.filter((r) => r.dataset !== ($("sw-ds").value || "breast_cancer"))) };
   const dss = ["breast_cancer", "wine", "moons"].filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("sw-ds", dss, DS_LABEL);
   const ds = $("sw-ds").value, m = $("sw-model").value;
@@ -440,7 +457,7 @@ function renderSweep() {
 function renderAblation() {
   const d0 = data.ablation;
   if (!d0 || !d0.summary.length) { ["encoding", "ansatz", "reupload"].forEach((f) => placeholder(`ch-ab-${f}`, "Расчёт идёт…")); return; }
-  const d = { summary: pickEnc(d0.summary, "ablation").rows };
+  const d = { summary: pickEnc(d0.summary, "ablation", (r) => `${r.dataset}|${r.encoding}|${r.ansatz}|${r.reupload}`).rows };
   const dss = ["moons", "circles", "breast_cancer"].filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("ab-ds", dss, DS_LABEL);
   const ds = $("ab-ds").value;
@@ -472,7 +489,7 @@ function renderAblation() {
 function renderShots() {
   const d0 = data.shots;
   if (!d0 || !d0.summary.length) return;
-  const d = { summary: pickEnc(d0.summary, "shots").rows };
+  const d = { summary: pickEnc(d0.summary, "shots", (r) => `${r.dataset}|${r.shots}`).rows };
   const order = [100, 1000, 10000, 0];
   const lbl = (s) => (s === 0 ? "точно (∞)" : s.toLocaleString("ru"));
   const dss = uniq(d.summary.map((r) => r.dataset));
@@ -538,7 +555,7 @@ function renderSpeed() {
 function renderQ12() {
   const d0 = data.vision_q12;
   if (!d0 || !d0.summary.length) { placeholder("ch-q12", "Расчёт идёт на Tesla V100 — данные появятся автоматически"); return; }
-  const d = { summary: pickEnc(d0.summary, "q12").rows };
+  const d = { summary: pickEnc(d0.summary, "q12", (r) => `${r.dataset}|${r.n_train}`).rows };
   const v = data.vision ? { summary: data.vision.summary.filter((r) => !r.enc || r.enc === "-" || r.enc === pickEnc(d0.summary).enc) } : null;
   const dss = Object.keys(DS_LABEL).filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("q12-ds", dss, DS_LABEL);
@@ -589,7 +606,7 @@ function renderInit() {
   });
   const d0 = data.init;
   if (!d0 || !d0.summary.length) { placeholder("ch-init", "Расчёт идёт — данные появятся автоматически"); return; }
-  const d = { summary: pickEnc(d0.summary, "init").rows };
+  const d = { summary: pickEnc(d0.summary, "init", (r) => `${r.dataset}|${r.n_qubits}|${r.n_layers}|${r.init}`).rows };
   const dss = ["breast_cancer", "moons", "wine"].filter((x) => d.summary.some((r) => r.dataset === x));
   fillSelect("init-ds", dss, DS_LABEL);
   const ds = $("init-ds").value, m = $("init-model").value;
@@ -764,6 +781,9 @@ function route() {
   document.querySelectorAll("#exp-nav a").forEach((a) => a.classList.toggle("active", a.dataset.exp === exp));
   $("enc").closest(".enc-switch").style.visibility = ["results", "encoder", "home"].includes(page) ? "visible" : "hidden";
   window.scrollTo({ top: 0, behavior: "instant" });
+  document.querySelector("#tabs a.active")?.scrollIntoView({ block: "nearest", inline: "center" });
+  if (page === "results") document.querySelector("#exp-nav a.active")?.scrollIntoView({ block: "nearest", inline: "center" });
+  syncHeader();
   // графики в скрытых вкладках имели нулевой размер — пересчитываем
   requestAnimationFrame(() => { renderAll(); Object.values(charts).forEach((c) => c.resize()); });
 }

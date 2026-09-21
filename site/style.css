@@ -260,3 +260,49 @@ table.data.left td, table.data.left th { text-align: left; vertical-align: top; 
 .refs { padding-left: 22px; margin: 0; columns: 1; }
 .refs li { margin: 6px 0; color: var(--ink-2); font-size: 14px; }
 .downloads li { font-size: 14px; }
+
+/* ======================================================== адаптивная шапка и мобильная версия */
+:root { --hdr: 56px; }
+html { scroll-padding-top: calc(var(--hdr) + 8px); }
+.top-inner { flex-wrap: wrap; row-gap: 4px; }
+.brand { margin-right: 8px; }
+nav#tabs { -webkit-overflow-scrolling: touch; }
+nav#tabs::-webkit-scrollbar { display: none; }
+@media (max-width: 1279px) {
+  .brand { margin-right: auto; }
+  nav#tabs { order: 5; flex: 0 0 100%; margin: 0 -16px; padding: 0 12px 4px; }
+}
+.enc-switch select { max-width: 190px; }
+.exp-nav.tabs2 { top: var(--hdr); }
+
+@media (max-width: 700px) {
+  body { font-size: 14.5px; }
+  .top-inner { padding: 8px 12px; gap: 8px; }
+  .brand .logo { font-size: 17px; }
+  .enc-switch select { max-width: 150px; font-size: 12px; }
+  nav#tabs a { padding: 6px 9px; font-size: 13.5px; }
+  main { padding: 4px 12px 48px; }
+  section { padding-top: 32px; }
+  .section-head h2 { font-size: 23px; }
+  .hero-inner { padding: 24px 12px 28px; gap: 18px; }
+  .hero-lead { font-size: 15.5px; }
+  .hero-actions .btn { flex: 1 1 auto; text-align: center; }
+  .hero-circuit { max-width: 340px !important; margin: 0 auto; }
+  .grid2, .grid3, .grid4 { grid-template-columns: 1fr; }
+  .card { padding: 13px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .kpi .value { font-size: 22px; }
+  .chart { height: 300px; }
+  .chart.tall { height: 360px; }
+  .chart.small { height: 190px; }
+  .exp-nav.tabs2 { flex-wrap: nowrap; overflow-x: auto; margin: 6px -12px 0; padding: 8px 12px; scrollbar-width: none; }
+  .exp-nav.tabs2::-webkit-scrollbar { display: none; }
+  .exp-nav a { flex: 0 0 auto; }
+  .exp-title { font-size: 18px; }
+  .hero-num .num { font-size: 40px; }
+  table.data { font-size: 12.5px; }
+  table.data th, table.data td { padding: 5px 7px; }
+  pre { font-size: 12px; }
+  .timeline { padding-left: 22px; }
+  footer { flex-direction: column; }
+}
