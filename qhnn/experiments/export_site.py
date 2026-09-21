@@ -49,10 +49,11 @@ def progress() -> dict:
         cfg_path = ROOT / "configs" / f"{name}.yaml"
         if not cfg_path.exists():
             continue
-        total = len(expand(yaml.safe_load(open(cfg_path, encoding="utf-8"))))
+        ids = {r["run_id"] for r in expand(yaml.safe_load(open(cfg_path, encoding="utf-8")))}
         df = _load(name)
-        done = 0 if df is None else df.run_id.nunique()
-        out["series"][name] = {"done": int(min(done, total)), "total": total}
+        # засчитываются только запуски текущей версии конфига (старые варианты не в счёт)
+        done = 0 if df is None else len(ids & set(df.run_id))
+        out["series"][name] = {"done": int(done), "total": len(ids)}
     out["extra"] = {"barren": (RES / "barren.csv").exists(), "speed": (RES / "speed.csv").exists()}
     mon = RES / "monitor.csv"
     if mon.exists():
