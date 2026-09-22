@@ -58,32 +58,15 @@ function tagSection(section, e, have = 0, total = 0) {
   if (!h) return;
   let t = h.querySelector(".enc-tag");
   if (!t) { t = document.createElement("span"); t.className = "enc-tag"; h.appendChild(t); }
-  if (!e) { t.textContent = "encoder: данные ещё считаются"; t.classList.add("fallback"); return; }
-  t.textContent = `encoder: ${ENC_LABEL[e]}` + (e === ENC ? "" :
-    have > 0 ? ` · выбранный посчитан частично (${have} из ${total})` : " · выбранный ещё считается");
+  if (!e) { t.textContent = "энкодер: нет данных"; t.classList.add("fallback"); return; }
+  t.textContent = `энкодер: ${ENC_LABEL[e]}` + (e === ENC ? "" :
+    have > 0 ? ` · выбранный есть только для ${have} из ${total} точек` : " · выбранный в этой серии не использовался");
   t.classList.toggle("fallback", e !== ENC);
 }
 function encNote(id, e) {
   const el = $(id);
   if (el && e && e !== ENC) el.dataset.encNote = `(encoder: ${ENC_LABEL[e]} — выбранный ещё считается)`;
 }
-
-// ---------------------------------------------------------------- тема
-(function theme() {
-  let saved = null;
-  try { saved = localStorage.getItem("theme"); } catch (e) {}
-  if (saved) document.documentElement.dataset.theme = saved;
-  $("theme").addEventListener("click", () => {
-    const dark = document.documentElement.dataset.theme
-      ? document.documentElement.dataset.theme === "dark"
-      : matchMedia("(prefers-color-scheme: dark)").matches;
-    const next = dark ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("theme", next); } catch (e) {}
-    renderAll();
-  });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
-})();
 
 // ---------------------------------------------------------------- ECharts база
 function chart(id) {
@@ -94,8 +77,12 @@ function chart(id) {
 }
 // высота шапки меняется (одна или две строки) — от неё зависят липкие вкладки экспериментов
 function syncHeader() {
-  const h = document.querySelector("header.top");
-  if (h) document.documentElement.style.setProperty("--hdr", h.offsetHeight + "px");
+  const h = document.querySelector("header.top"), nav = $("tabs");
+  if (!h) return;
+  // если вкладки не помещаются в одну строку с логотипом — переносим их на вторую строку
+  h.classList.remove("wrap");
+  if (nav && nav.scrollWidth > nav.clientWidth + 2) h.classList.add("wrap");
+  document.documentElement.style.setProperty("--hdr", h.offsetHeight + "px");
 }
 window.addEventListener("resize", () => { syncHeader(); Object.values(charts).forEach((c) => c.resize()); });
 syncHeader();
@@ -223,8 +210,7 @@ function renderProgress() {
   let done = 0, total = 0;
   Object.values(s).forEach((v) => { done += v.done; total += v.total; });
   $("hero-num").textContent = total ? Math.floor((100 * done) / total) + "%" : "—";
-  $("hero-cap").textContent = `${done.toLocaleString("ru")} из ${total.toLocaleString("ru")} обучений моделей · обновлено ${p.updated}`;
-  $("updated").textContent = "данные обновлены " + p.updated;
+  $("hero-cap").textContent = `${done.toLocaleString("ru")} из ${total.toLocaleString("ru")} обучений моделей`;
   const tiles = $("tiles");
   tiles.textContent = "";
   Object.entries(s).forEach(([k, v]) => {
@@ -660,20 +646,11 @@ function renderGallery() {
   if (!g) return;
   g.textContent = "";
   if (!f || !f.length) { const p = document.createElement("p"); p.className = "note"; p.textContent = "Рисунки появятся после первого прогона анализа."; g.appendChild(p); return; }
-  const prog = (data.progress && data.progress.series) || {};
-  const hhmm = (t) => new Date(t * 1000).toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
   f.forEach((it) => {
     const a = document.createElement("a"); a.href = `figures/${it.file}?t=${it.mtime || ""}`; a.target = "_blank"; a.rel = "noopener";
     const img = document.createElement("img"); img.loading = "lazy"; img.src = `figures/${it.file}?t=${it.mtime || ""}`; img.alt = it.title;
     const s = document.createElement("span"); s.className = "g-title"; s.textContent = it.title;
-    const m = document.createElement("span"); m.className = "g-meta";
-    const pr = it.series && prog[it.series];
-    const done = pr && pr.total && pr.done >= pr.total;
-    // рисунки без серии (barren, скорость) финальны, когда завершён весь прогон
-    const allDone = Object.values(prog).length && Object.values(prog).every((x) => x.done >= x.total);
-    m.textContent = done || (!pr && allDone) ? "финальная версия" :
-      pr && pr.total ? `обновлён ${hhmm(it.mtime)} · ${Math.floor(100 * pr.done / pr.total)}% данных` : `обновлён ${hhmm(it.mtime)}`;
-    a.append(img, s, m); g.appendChild(a);
+    a.append(img, s); g.appendChild(a);
   });
 }
 
@@ -692,14 +669,14 @@ function renderEncSwitch() {
   [...sel.options].forEach((o) => {
     const has = cnt[o.value] > 0;
     o.disabled = !has;
-    o.textContent = ENC_LABEL[o.value] + (has ? "" : " — ещё считается");
+    o.textContent = ENC_LABEL[o.value] + (has ? "" : " — нет данных");
   });
   const shown = cnt[ENC] > 0 ? ENC : ["bn", "pi2", "pi"].find((e) => cnt[e] > 0);
   if (shown && sel.value !== shown && !(cnt[sel.value] > 0)) sel.value = shown;
   const st = $("enc-status");
   if (st) {
     const fb = [...document.querySelectorAll(".enc-tag.fallback")].length;
-    st.textContent = `Выбран encoder ${ENC_LABEL[ENC]}.` + (fb ? ` В ${fb} из ${document.querySelectorAll(".enc-tag").length} экспериментов он ещё считается — там временно показан другой вариант (см. метку у заголовка); графики обновятся автоматически.` : " Во всех экспериментах показан именно он.");
+    st.textContent = `Выбран энкодер ${ENC_LABEL[ENC]}.` + (fb ? ` В ${fb} из ${document.querySelectorAll(".enc-tag").length} экспериментов гибрид обучался с другим вариантом — там показан он (см. метку у заголовка).` : " Во всех экспериментах показан именно он.");
   }
 }
 
@@ -719,7 +696,7 @@ function renderServer() {
   const fresh = p && p.updated && (Date.now() - new Date(p.updated.replace(" ", "T")).getTime()) < 10 * 60 * 1000;
   const st = $("live-state");
   if (st) st.textContent = fresh ? "Идут расчёты — графики «Сейчас» обновляются автоматически."
-    : `Расчёты завершены${d && d.totals && d.totals.end ? " " + d.totals.end : ""}. Сервер выключен — ниже итоговая статистика прогона.`;
+    : "Расчёты завершены, сервер выключен — ниже итоговая статистика прогона.";
   const eb = $("live-eyebrow");
   if (eb) eb.lastChild.textContent = fresh ? "В реальном времени" : "Прогон завершён";
   eb?.querySelector(".live-dot")?.classList.toggle("off", !fresh);
@@ -747,6 +724,10 @@ function renderServer() {
   });
   // данные: полный журнал с шагом 15 с (после выключения сервера) или последние замеры (пока идут расчёты)
   const raw = (d.raw && d.raw.length) ? d.raw : ((p && p.monitor) || []).map((r) => ({ ...r, t: String(r.time).slice(-8) }));
+  // ось времени — от начала прогона: 0:00, 0:30, 1:00 …
+  const sec = (t) => { const [h, m, s2] = String(t).split(":").map(Number); return h * 3600 + m * 60 + (s2 || 0); };
+  const t0 = raw.length ? sec(raw[0].t) : 0;
+  const el = (t) => { const x = (sec(t) - t0 + 86400) % 86400; return `${Math.floor(x / 3600)}:${String(Math.floor((x % 3600) / 60)).padStart(2, "0")}`; };
   const period = (document.querySelector("#hist-period .active") || {}).dataset?.min || "busy";
   // окно заканчивается «сейчас», если сервер работает, и в конце основного периода нагрузки — если выключен
   const busyEnd = fresh || bz.end_index == null ? raw.length - 1 : bz.end_index;
@@ -757,11 +738,11 @@ function renderServer() {
   else { endIdx = busyEnd; startIdx = Math.max(0, endIdx - Number(period) * 4 + 1); }
   const note = $("hist-note");
   if (note) note.textContent = fresh ? "Окно заканчивается текущим моментом. Ползунок под графиком сдвигает окно по всему журналу."
-    : `Сервер выключен — окно заканчивается в конце основного периода расчётов (${bz.end || "—"}). Ползунок под графиком сдвигает окно по всему журналу (замеры каждые 15 с).`;
-  const xs = raw.map((r) => r.t);
+    : `Время — от начала прогона. Окна 5 мин … 6 ч заканчиваются в конце основного периода расчётов (${raw[busyEnd] ? el(raw[busyEnd].t) : "—"}). Ползунок под графиком сдвигает окно по всему журналу (замеры каждые 15 с).`;
+  const xs = raw.map((r) => el(r.t));
   const zoomIn = { type: "inside", startValue: startIdx, endValue: endIdx };
   const tip = (unit) => ({ ...base().tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: css("--muted"), width: 1 } },
-    formatter: (ps) => `${ps[0].axisValue}<br>` + ps.map((q) => tipRow(q.color, q.value == null ? "—" : `${q.value}${unit}`, q.seriesName)).join("") });
+    formatter: (ps) => `${ps[0].axisValue} от старта<br>` + ps.map((q) => tipRow(q.color, q.value == null ? "—" : `${q.value}${unit}`, q.seriesName)).join("") });
   const line = (name, key, col) => ({ name, type: "line", showSymbol: false, sampling: "lttb", data: raw.map((r) => r[key]),
     lineStyle: { width: 1.6, color: col }, itemStyle: { color: col } });
   const axisX = { ...base().xAxis, type: "category", data: xs, boundaryGap: false, axisLabel: { color: css("--muted"), fontSize: 11 } };
@@ -831,7 +812,7 @@ function renderBarrenAnsatz() {
 ["ba-cost", "ba-init"].forEach((id) => $(id).addEventListener("change", renderBarrenAnsatz));
 
 // ---------------------------------------------------------------- вкладки (#/страница/эксперимент)
-const PAGES = ["home", "library", "results", "encoder", "data", "roadmap", "live", "gallery"];
+const PAGES = ["home", "library", "results", "encoder", "live", "gallery"];
 const EXPS = ["tabular", "vision", "q12", "sweep", "ablation", "shots", "barren", "init", "speed"];
 function route() {
   const parts = location.hash.replace(/^#\/?/, "").split("/");
@@ -843,7 +824,7 @@ function route() {
   document.querySelectorAll("#tabs a").forEach((a) => a.classList.toggle("active", a.dataset.page === page));
   document.querySelectorAll("#page-results article.exp").forEach((a) => a.classList.toggle("active", a.id === exp));
   document.querySelectorAll("#exp-nav a").forEach((a) => a.classList.toggle("active", a.dataset.exp === exp));
-  $("enc").closest(".enc-switch").style.display = ["results", "encoder", "home"].includes(page) ? "" : "none";
+  syncHeader();
   window.scrollTo({ top: 0, behavior: "instant" });
   // активная вкладка — в центр горизонтальной ленты, только если лента не помещается целиком
   const center = (box, el) => { if (box && el && box.scrollWidth > box.clientWidth + 2) box.scrollLeft = el.offsetLeft - (box.clientWidth - el.offsetWidth) / 2; };
