@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+body { margin: 0; background: #fff; }
+svg text { font-family: "Times New Roman", serif; }
+</style></head><body>
+<svg viewBox="0 0 1000 360" width="1000" height="360" xmlns="http://www.w3.org/2000/svg">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+  <style>
+    .b { fill: #fff; stroke: #333; stroke-width: 1.6; }
+    .c { fill: #eefaf4; stroke: #1baf7a; stroke-width: 2; }
+    .q { fill: #eaf2fc; stroke: #2a78d6; stroke-width: 2; }
+    .t { font-size: 20px; font-weight: bold; fill: #111; }
+    .s { font-size: 16px; fill: #333; }
+    .l { stroke: #444; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .w { stroke: #999; stroke-width: 1.2; }
+    .g { fill: #fff; stroke: #2a78d6; stroke-width: 1.4; }
+    .gt { font-size: 12px; fill: #111; font-weight: bold; }
+  </style>
+  <rect class="b" x="10" y="130" width="140" height="90" rx="8"/>
+  <text x="80" y="165" class="t" text-anchor="middle">Вход x</text>
+  <text x="80" y="190" class="s" text-anchor="middle">признаки или</text>
+  <text x="80" y="208" class="s" text-anchor="middle">ResNet18 (512)</text>
+
+  <rect class="c" x="185" y="130" width="165" height="90" rx="8"/>
+  <text x="267" y="160" class="t" text-anchor="middle">Энкодер</text>
+  <text x="267" y="184" class="s" text-anchor="middle">Linear → BatchNorm</text>
+  <text x="267" y="204" class="s" text-anchor="middle">→ (π/2)·tanh</text>
+
+  <rect class="q" x="385" y="30" width="400" height="300" rx="10"/>
+  <text x="585" y="58" class="t" text-anchor="middle">QuantumLayer (n кубитов, L слоёв)</text>
+  <g>
+    <line class="w" x1="405" y1="100" x2="765" y2="100"/><line class="w" x1="405" y1="150" x2="765" y2="150"/>
+    <line class="w" x1="405" y1="200" x2="765" y2="200"/><line class="w" x1="405" y1="250" x2="765" y2="250"/>
+    <g>
+      <rect class="g" x="420" y="88" width="54" height="24" rx="4"/><text x="447" y="105" class="gt" text-anchor="middle">RY(x₀)</text>
+      <rect class="g" x="420" y="138" width="54" height="24" rx="4"/><text x="447" y="155" class="gt" text-anchor="middle">RY(x₁)</text>
+      <rect class="g" x="420" y="188" width="54" height="24" rx="4"/><text x="447" y="205" class="gt" text-anchor="middle">RY(x₂)</text>
+      <rect class="g" x="420" y="238" width="54" height="24" rx="4"/><text x="447" y="255" class="gt" text-anchor="middle">RY(x₃)</text>
+      <rect class="g" x="495" y="88" width="44" height="24" rx="4"/><text x="517" y="105" class="gt" text-anchor="middle">Rot</text>
+      <rect class="g" x="495" y="138" width="44" height="24" rx="4"/><text x="517" y="155" class="gt" text-anchor="middle">Rot</text>
+      <rect class="g" x="495" y="188" width="44" height="24" rx="4"/><text x="517" y="205" class="gt" text-anchor="middle">Rot</text>
+      <rect class="g" x="495" y="238" width="44" height="24" rx="4"/><text x="517" y="255" class="gt" text-anchor="middle">Rot</text>
+    </g>
+    <g stroke="#2a78d6" stroke-width="1.5" fill="none">
+      <line x1="560" y1="100" x2="560" y2="150"/><circle cx="560" cy="100" r="4" fill="#2a78d6"/><circle cx="560" cy="150" r="8"/><line x1="552" y1="150" x2="568" y2="150"/>
+      <line x1="585" y1="150" x2="585" y2="200"/><circle cx="585" cy="150" r="4" fill="#2a78d6"/><circle cx="585" cy="200" r="8"/><line x1="577" y1="200" x2="593" y2="200"/>
+      <line x1="610" y1="200" x2="610" y2="250"/><circle cx="610" cy="200" r="4" fill="#2a78d6"/><circle cx="610" cy="250" r="8"/><line x1="602" y1="250" x2="618" y2="250"/>
+      <line x1="635" y1="100" x2="635" y2="250"/><circle cx="635" cy="250" r="4" fill="#2a78d6"/><circle cx="635" cy="100" r="8"/><line x1="627" y1="100" x2="643" y2="100"/>
+    </g>
+    <text x="650" y="178" class="s">× L</text>
+    <g>
+      <rect class="g" x="700" y="88" width="46" height="24" rx="4" style="stroke:#d55181"/><text x="723" y="105" class="gt" text-anchor="middle">⟨Z₀⟩</text>
+      <rect class="g" x="700" y="138" width="46" height="24" rx="4" style="stroke:#d55181"/><text x="723" y="155" class="gt" text-anchor="middle">⟨Z₁⟩</text>
+      <rect class="g" x="700" y="188" width="46" height="24" rx="4" style="stroke:#d55181"/><text x="723" y="205" class="gt" text-anchor="middle">⟨Z₂⟩</text>
+      <rect class="g" x="700" y="238" width="46" height="24" rx="4" style="stroke:#d55181"/><text x="723" y="255" class="gt" text-anchor="middle">⟨Z₃⟩</text>
+    </g>
+    <text x="585" y="300" class="s" text-anchor="middle">кодирование → вариационные слои → измерение</text>
+  </g>
+
+  <rect class="c" x="820" y="130" width="100" height="90" rx="8"/>
+  <text x="870" y="165" class="t" text-anchor="middle">Head</text>
+  <text x="870" y="190" class="s" text-anchor="middle">Linear</text>
+  <rect class="b" x="945" y="145" width="48" height="60" rx="8"/>
+  <text x="969" y="182" class="t" text-anchor="middle">ŷ</text>
+
+  <path class="l" d="M150 175 H183"/><path class="l" d="M350 175 H383"/>
+  <path class="l" d="M785 175 H818"/><path class="l" d="M920 175 H943"/>
+</svg>
+</body></html>
