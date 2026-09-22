@@ -372,6 +372,39 @@ def barren_init():
     _save(fig, "barren_init")
 
 
+def barren_ansatz():
+    """Сравнение анзацев: hea (barren_init), strong, basic — локальная и глобальная стоимость, L = 20."""
+    parts = []
+    for f, name in (("barren_init.csv", "hea"), ("barren_strong.csv", "strong"), ("barren_basic.csv", "basic")):
+        p = RES / f
+        if p.exists():
+            d = pd.read_csv(p)
+            d["ansatz"] = name
+            parts.append(d)
+    if len(parts) < 2:
+        return
+    print("[barren_ansatz]")
+    df = pd.concat(parts)
+    df = df[df.init.isin(["uniform", "small"])]
+    _table(df, "barren_ansatz")
+    lab = {"hea": "HEA (RY·RZ + CZ)", "strong": "Strongly entangling", "basic": "RY + CNOT"}
+    col = {"hea": "#2a78d6", "strong": "#eb6834", "basic": "#1baf7a"}
+    L = df.n_layers.max()
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6), sharey=True)
+    for ax, cost in zip(axes, ("local", "global")):
+        for a in ("hea", "strong", "basic"):
+            for init, ls in (("uniform", "-"), ("small", "--")):
+                r = df[(df.ansatz == a) & (df.cost == cost) & (df.n_layers == L) & (df.init == init)].sort_values("n_qubits")
+                if len(r):
+                    ax.plot(r.n_qubits, r.grad_var, ls, marker="o", ms=3, color=col[a],
+                            label=f"{lab[a]}, {init}")
+        ax.set_yscale("log"); ax.set_xlabel("Число кубитов")
+        ax.set_title(f"{'Локальная' if cost == 'local' else 'Глобальная'} стоимость, L = {L}", fontsize=10)
+    axes[0].set_ylabel("Var[∂C/∂θ]")
+    axes[0].legend(fontsize=7)
+    _save(fig, "barren_ansatz")
+
+
 def init_exp():
     df = primary(_load("init"))
     if df is None:
@@ -431,7 +464,7 @@ def main():
     _raise_priority()
     sys.stdout.reconfigure(encoding="utf-8")
     for f in (tabular, sweep, ablation, shots, vision, vision_q12, init_exp, encoder,
-              barren, barren_init, speed):
+              barren, barren_init, barren_ansatz, speed):
         try:
             f()
         except Exception as e:  # один сломанный раздел не должен ронять остальные

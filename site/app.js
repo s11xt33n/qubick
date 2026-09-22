@@ -196,7 +196,7 @@ async function load(name) {
 
 async function loadAll() {
   const names = ["progress", "tabular", "vision", "sweep", "ablation", "shots", "barren", "speed",
-    "vision_q12", "init", "barren_init", "encoder", "figures", "server"];
+    "vision_q12", "init", "barren_init", "encoder", "figures", "server", "barren_strong", "barren_basic"];
   const res = await Promise.all(names.map(load));
   names.forEach((n, i) => { if (res[i]) data[n] = res[i]; });
   renderAll();
@@ -205,7 +205,7 @@ async function loadAll() {
 function renderAll() {
   const steps = [renderModels, renderProgress, renderOverview, renderTabular, renderVision,
     renderSweep, renderAblation, renderShots, renderBarren, renderSpeed, renderQ12, renderInit,
-    renderEncoder, renderGallery, renderEncSwitch, renderServer];
+    renderEncoder, renderGallery, renderEncSwitch, renderServer, renderBarrenAnsatz];
   steps.forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
 
@@ -669,7 +669,9 @@ function renderGallery() {
     const m = document.createElement("span"); m.className = "g-meta";
     const pr = it.series && prog[it.series];
     const done = pr && pr.total && pr.done >= pr.total;
-    m.textContent = done ? "финальная версия" :
+    // рисунки без серии (barren, скорость) финальны, когда завершён весь прогон
+    const allDone = Object.values(prog).length && Object.values(prog).every((x) => x.done >= x.total);
+    m.textContent = done || (!pr && allDone) ? "финальная версия" :
       pr && pr.total ? `обновлён ${hhmm(it.mtime)} · ${Math.floor(100 * pr.done / pr.total)}% данных` : `обновлён ${hhmm(it.mtime)}`;
     a.append(img, s, m); g.appendChild(a);
   });
@@ -785,6 +787,29 @@ document.querySelectorAll("#hist-period button").forEach((b) => b.addEventListen
   document.querySelectorAll("#hist-period button").forEach((x) => x.classList.toggle("active", x === b));
   renderServer();
 }));
+
+// ---------------------------------------------------------------- barren: сравнение анзацев
+function renderBarrenAnsatz() {
+  const src = [["hea", data.barren_init], ["strong", data.barren_strong], ["basic", data.barren_basic]].filter((x) => x[1]);
+  if (src.length < 2) { placeholder("ch-barren-ansatz", "Расчёт идёт…"); return; }
+  const cost = $("ba-cost").value, init = $("ba-init").value;
+  const lab = { hea: "HEA (RY·RZ + CZ)", strong: "Strongly entangling", basic: "RY + CNOT" };
+  const cols = { hea: css("--s1"), strong: css("--s2"), basic: css("--s3") };
+  const L = Math.max(...src.flatMap(([, d]) => d.map((r) => r.n_layers)));
+  const qs = uniq(src.flatMap(([, d]) => d.map((r) => r.n_qubits))).sort((x, y) => x - y);
+  $("ba-title").textContent = `Три типа схем: ${cost === "global" ? "глобальная" : "локальная"} стоимость, L = ${L}`;
+  const c = chart("ch-barren-ansatz");
+  if (c) c.setOption(base({
+    tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => `<b>${ps[0].axisValue} кубитов</b><br>` +
+      ps.filter((p) => p.value != null).map((p) => tipRow(p.color, Number(p.value).toExponential(2), p.seriesName)).join("") },
+    xAxis: { ...base().xAxis, type: "category", data: qs.map(String), name: "Кубиты", nameLocation: "middle", nameGap: 26 },
+    yAxis: { ...base().yAxis, type: "log", name: "Var[∂C/∂θ]", axisLabel: { color: css("--muted"), formatter: (v) => Number(v).toExponential(0) } },
+    series: src.map(([a, d]) => ({ name: lab[a], type: "line", symbolSize: 8,
+      data: qs.map((q) => { const r = d.find((x) => x.n_qubits === q && x.cost === cost && x.n_layers === L && (x.init || "uniform") === init); return r ? pos(r.grad_var) : null; }),
+      lineStyle: { width: 2, color: cols[a] }, itemStyle: { color: cols[a], borderColor: css("--surface"), borderWidth: 2 } })),
+  }), true);
+}
+["ba-cost", "ba-init"].forEach((id) => $(id).addEventListener("change", renderBarrenAnsatz));
 
 // ---------------------------------------------------------------- вкладки (#/страница/эксперимент)
 const PAGES = ["home", "library", "results", "encoder", "data", "roadmap", "live", "gallery"];

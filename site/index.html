@@ -7,7 +7,7 @@
 <meta name="description" content="qhnn: библиотека на PyTorch и исследование гибридных квантово-классических нейронных сетей. Интерактивные результаты экспериментов.">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%232a78d6' stroke-width='3'/><circle cx='16' cy='16' r='4' fill='%23e87ba4'/></svg>">
-<link rel="stylesheet" href="style.css?v=1790034186">
+<link rel="stylesheet" href="style.css?v=1790060579">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 </head>
 <body>
@@ -292,6 +292,13 @@ loss.backward()   # градиент проходит через квантов�
       <div class="card"><h4>Локальная стоимость ⟨Z₀Z₁⟩</h4><div class="chart" id="ch-barren-local"></div></div>
       <div class="card"><h4>Глобальная стоимость ⟨Z₀…Zₙ₋₁⟩</h4><div class="chart" id="ch-barren-global"></div></div>
     </div>
+    <div class="controls">
+      <label>Стоимость <select id="ba-cost"><option value="global">глобальная</option><option value="local">локальная</option></select></label>
+      <label>Инициализация <select id="ba-init"><option value="uniform">uniform U[0, 2π)</option><option value="small">small N(0, 0.1²)</option></select></label>
+    </div>
+    <div class="card"><h4 id="ba-title">Три типа схем, L = 20</h4><div class="chart" id="ch-barren-ansatz"></div>
+      <p class="note">HEA — RY·RZ + цепочка CZ; Strongly entangling — Rot + кольцо CNOT с переменным шагом; RY + CNOT — простейший анзац.
+        Данные — до 20 кубитов, 1000 случайных наборов параметров на точку, расчёт на Tesla V100.</p></div>
   </article>
 
   <article class="exp" id="init">
@@ -526,6 +533,6 @@ loss.backward()   # градиент проходит через квантов�
   <div><b>QHNN</b> · Quantum Hybrid Neural Networks · гибридные квантово-классические нейронные сети</div>
   <div>Филадельфов Т. Г. · КФУ, ИВМиИТ · <span id="updated"></span></div>
 </footer>
-<script src="app.js?v=1790034186"></script>
+<script src="app.js?v=1790060579"></script>
 </body>
 </html>

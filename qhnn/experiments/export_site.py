@@ -253,6 +253,7 @@ FIG_TITLES = {
     "shots": "Конечное число измерений",
     "barren": "Barren plateaus",
     "barren_init": "Barren plateaus: стратегии инициализации",
+    "barren_ansatz": "Barren plateaus: три типа схем",
     "init": "Инициализация и точность глубоких схем",
     "encoder": "Находка: масштаб encoder'а",
     "speed": "Скорость симулятора против PennyLane",
@@ -301,6 +302,7 @@ def main():
              "ablation": ablation(), "shots": shots(), "vision": vision(),
              "vision_q12": vision_q12(), "init": init_exp(), "encoder": encoder(),
              "barren": csv_records("barren"), "barren_init": csv_records("barren_init"),
+             "barren_strong": csv_records("barren_strong"), "barren_basic": csv_records("barren_basic"),
              "speed": csv_records("speed"), "figures": figures(Path(a.out).parent),
              "server": server()}
     for name, data in parts.items():
