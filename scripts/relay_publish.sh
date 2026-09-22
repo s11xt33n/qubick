@@ -7,7 +7,7 @@ INT=${1:-90}
 TMP=$(mktemp -d)
 while true; do
   if ssh -o BatchMode=yes -o ConnectTimeout=10 "$SRV" \
-       "cd /d D:\qhnn && .venv-cpu\Scripts\python.exe -m qhnn.experiments.export_site --out D:\qhnn\site\data" >/dev/null 2>&1 \
+       "cd /d D:\qhnn && .venv-cpu\Scripts\python.exe -m qubik.experiments.export_site --out D:\qhnn\site\data" >/dev/null 2>&1 \
      && scp -q -o BatchMode=yes "$SRV:D:/qhnn/site/data/*.json" "$TMP/" \
      && scp -q -o BatchMode=yes "$TMP"/*.json "$VPS:/var/www/qhnn/data/"; then
     echo "$(date +%H:%M:%S) published $(ls "$TMP" | wc -l) files"

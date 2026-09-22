@@ -2,7 +2,7 @@
 
 Табличные наборы: iris, wine, breast_cancer, moons, circles.
 Признаки изображений: vision:<name> — заранее извлечённые признаки
-(см. qhnn/features.py), хранятся в results/features/<name>.npz.
+(см. qubik/features.py), хранятся в results/features/<name>.npz.
 
 Разбиение: стратифицированное train/val/test = 60/20/20 (для табличных),
 seed управляет и разбиением, и инициализацией модели. Масштабирование и

@@ -12,11 +12,11 @@ Log "stop publish loop"
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like "*scripts\publish.ps1*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 
 Log "speed benchmark"
-& $gpu -m qhnn.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 16 --pl-max-qubits 12 --out D:\qhnn\results\speed.csv *> D:\qhnn\results\speed.log
+& $gpu -m qubik.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 16 --pl-max-qubits 12 --out D:\qhnn\results\speed.csv *> D:\qhnn\results\speed.log
 Log "analyze"
-& $cpu -m qhnn.experiments.analyze *> D:\qhnn\results\analyze.log
+& $cpu -m qubik.experiments.analyze *> D:\qhnn\results\analyze.log
 Log "export"
-& $cpu -m qhnn.experiments.export_site --out D:\qhnn\site\data *> D:\qhnn\results\export.log
+& $cpu -m qubik.experiments.export_site --out D:\qhnn\site\data *> D:\qhnn\results\export.log
 
 Log "final publish"
 $key = "$env:USERPROFILE\.ssh\id_qhnn_publish"; $vps = "qhnn@195.133.75.140"

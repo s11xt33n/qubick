@@ -1,6 +1,6 @@
 """Экспорт результатов в JSON для сайта (site/data/*.json).
 
-    python -m qhnn.experiments.export_site [--out site/data]
+    python -m qubik.experiments.export_site [--out site/data]
 
 Сайт — статический: страница читает эти файлы и рисует графики. На сервере
 экспорт запускается по расписанию, и сайт показывает прогресс в реальном времени.
@@ -17,8 +17,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from qhnn.experiments.analyze import RES, _load, mean_std, paired_tests
-from qhnn.experiments.runner import ROOT, expand
+from qubik.experiments.analyze import RES, _load, mean_std, paired_tests
+from qubik.experiments.runner import ROOT, expand
 
 SERIES = ["tabular", "sweep", "ablation", "shots", "vision", "vision_q12", "init"]
 

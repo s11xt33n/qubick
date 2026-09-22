@@ -15,20 +15,20 @@ Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -Executio
 $base = "configs\tabular.yaml configs\shots.yaml configs\ablation.yaml configs\sweep.yaml"
 
 Log "START: CPU x60 (tabular/shots/ablation/sweep<=8q) + GPU x6 (sweep 10-12q) + GPU features"
-$cpu = Run $cpu_py "-m qhnn.experiments.runner $base --workers 60 --max-qubits 8" "main_cpu"
-$gpu = Run $gpu_py "-m qhnn.experiments.runner $base --workers 6 --min-qubits 10 --device cuda --tag .gpu" "main_gpu"
-& $gpu_py -m qhnn.features mnist fashion pneumonia breast --device cuda --n-train 10000 --n-test 2000 *> results\features.log
+$cpu = Run $cpu_py "-m qubik.experiments.runner $base --workers 60 --max-qubits 8" "main_cpu"
+$gpu = Run $gpu_py "-m qubik.experiments.runner $base --workers 6 --min-qubits 10 --device cuda --tag .gpu" "main_gpu"
+& $gpu_py -m qubik.features mnist fashion pneumonia breast --device cuda --n-train 10000 --n-test 2000 *> results\features.log
 Log "features done -> vision CPU x20"
-$vis = Run $cpu_py "-m qhnn.experiments.runner configs\vision.yaml --workers 20" "vision"
+$vis = Run $cpu_py "-m qubik.experiments.runner configs\vision.yaml --workers 20" "vision"
 Log "barren (GPU)"
-& $gpu_py -m qhnn.experiments.barren --device cuda --qubits 2 4 6 8 10 12 14 16 --layers 1 5 20 50 --samples 2000 *> results\barren.log
+& $gpu_py -m qubik.experiments.barren --device cuda --qubits 2 4 6 8 10 12 14 16 --layers 1 5 20 50 --samples 2000 *> results\barren.log
 Log "barren done"
 $gpu.WaitForExit(); Log "GPU runner done"
 $cpu.WaitForExit(); Log "CPU runner done"
 # освободившиеся ядра — на досчёт vision
-$vis2 = Run $cpu_py "-m qhnn.experiments.runner configs\vision.yaml --workers 40 --tag .b" "vision2"
+$vis2 = Run $cpu_py "-m qubik.experiments.runner configs\vision.yaml --workers 40 --tag .b" "vision2"
 $vis.WaitForExit(); $vis2.WaitForExit(); Log "vision done"
 Log "speed (на свободной машине)"
-& $gpu_py -m qhnn.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 16 --pl-max-qubits 12 *> results\speed.log
-& $gpu_py -m qhnn.experiments.analyze *> results\analyze.log
+& $gpu_py -m qubik.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 16 --pl-max-qubits 12 *> results\speed.log
+& $gpu_py -m qubik.experiments.analyze *> results\analyze.log
 Log "ALL DONE"

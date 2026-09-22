@@ -2,7 +2,7 @@
 import glob, os, sys
 import yaml
 sys.stdout.reconfigure(encoding="utf-8")
-from qhnn.experiments.runner import ROOT, expand, load_results
+from qubik.experiments.runner import ROOT, expand, load_results
 
 res = ROOT / "results"
 locks = {p.name for p in (res / "locks").glob("*")} if (res / "locks").exists() else set()

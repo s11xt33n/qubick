@@ -1,4 +1,4 @@
-/* qhnn — сайт с результатами. Данные: data/*.json (qhnn.experiments.export_site). */
+/* Qubik — сайт с результатами. Данные: data/*.json (qubik.experiments.export_site). */
 "use strict";
 
 const MODELS = ["hybrid", "quantum", "classical", "classical_matched", "bottleneck"];
@@ -537,7 +537,7 @@ function renderSpeed() {
   if (!d) { placeholder("ch-speed", "Замер запускается последним, на свободном сервере — результаты появятся после завершения всех экспериментов"); return; }
   const qs = uniq(d.map((r) => r.n_qubits)).sort((a, b) => a - b);
   const keys = uniq(d.map((r) => `${r.backend}|${r.diff_method}|${r.device}`));
-  const name = (k) => { const [b, m, dev] = k.split("|"); return `${b === "torch" ? "qhnn" : "PennyLane"}, ${m}${b === "torch" ? ", " + dev.toUpperCase() : ""}`; };
+  const name = (k) => { const [b, m, dev] = k.split("|"); return `${b === "torch" ? "Qubik" : "PennyLane"}, ${m}${b === "torch" ? ", " + dev.toUpperCase() : ""}`; };
   const c = chart("ch-speed");
   if (c) c.setOption(base({
     tooltip: { ...base().tooltip, trigger: "axis", formatter: (ps) => `<b>${ps[0].axisValue} кубитов</b><br>` +

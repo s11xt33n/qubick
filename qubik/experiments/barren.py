@@ -27,9 +27,9 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from qhnn import build_circuit
-from qhnn import simulator as sim
-from qhnn.experiments.runner import ROOT
+from qubik import build_circuit
+from qubik import simulator as sim
+from qubik.experiments.runner import ROOT
 
 
 def costs(c, angles):

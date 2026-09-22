@@ -31,9 +31,9 @@ import pandas as pd
 import torch
 import yaml
 
-from qhnn.data import load_split
-from qhnn.models import build_model, n_params
-from qhnn.training import fit
+from qubik.data import load_split
+from qubik.models import build_model, n_params
+from qubik.training import fit
 
 ROOT = Path(__file__).resolve().parents[2]
 CLASSICAL = {"classical"}  # модели, не зависящие от параметров квантовой схемы
@@ -124,7 +124,7 @@ def estimated_cost(p: dict) -> float:
 def main(argv=None):
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
-    ap = argparse.ArgumentParser(description="Запуск серий экспериментов qhnn")
+    ap = argparse.ArgumentParser(description="Запуск серий экспериментов Qubik")
     ap.add_argument("configs", nargs="+")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--device", default="cpu")

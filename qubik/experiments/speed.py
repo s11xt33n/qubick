@@ -12,8 +12,8 @@ import time
 import pandas as pd
 import torch
 
-from qhnn import QuantumLayer
-from qhnn.experiments.runner import ROOT
+from qubik import QuantumLayer
+from qubik.experiments.runner import ROOT
 
 
 def step_time(layer, x, repeats):

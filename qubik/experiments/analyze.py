@@ -1,6 +1,6 @@
 """Анализ результатов: сводные таблицы, статистические тесты и графики.
 
-    python -m qhnn.experiments.analyze
+    python -m qubik.experiments.analyze
 
 Читает results/*.csv, пишет таблицы в results/tables и рисунки в
 results/figures. Каждый раздел строится, только если есть его данные.
@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import wilcoxon
 
-from qhnn.experiments.runner import ROOT
+from qubik.experiments.runner import ROOT
 
 RES = ROOT / "results"
 FIG = RES / "figures"
@@ -307,7 +307,7 @@ def speed():
     _table(df, "speed")
     fig, ax = plt.subplots(figsize=(5.5, 3.6))
     for (b, m, d), r in df.groupby(["backend", "diff_method", "device"]):
-        name = ("qhnn" if b == "torch" else "PennyLane") + f", {m}" + (f", {d}" if b == "torch" else "")
+        name = ("Qubik" if b == "torch" else "PennyLane") + f", {m}" + (f", {d}" if b == "torch" else "")
         ls = "-" if b == "torch" else "--"
         ax.plot(r.n_qubits, r.step_time * 1000, ls, marker="o", label=name)
     ax.set_yscale("log"); ax.set_xlabel("Число кубитов"); ax.set_ylabel("Шаг обучения, мс")

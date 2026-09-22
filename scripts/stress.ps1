@@ -17,10 +17,10 @@ $mon = Start-Job -ScriptBlock {
 
 $t0 = Get-Date
 "== 1. speed (CPU vs V100 vs PennyLane)"
-& $py -m qhnn.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 16 --pl-max-qubits 12 --repeats 3 --out results\stress\speed.csv
+& $py -m qubik.experiments.speed --devices cpu cuda --qubits 2 4 6 8 10 12 14 16 --pl-max-qubits 12 --repeats 3 --out results\stress\speed.csv
 "== 2. CPU x60 + GPU barren одновременно"
-$gpu = Start-Process -FilePath $py -ArgumentList "-m qhnn.experiments.barren --device cuda --qubits 12 14 16 --layers 5 20 --samples 1000 --out results\stress\barren.csv" -NoNewWindow -PassThru -RedirectStandardOutput results\stress\barren.log
-& $py -m qhnn.experiments.runner configs\ablation.yaml --workers 60 --limit 180
+$gpu = Start-Process -FilePath $py -ArgumentList "-m qubik.experiments.barren --device cuda --qubits 12 14 16 --layers 5 20 --samples 1000 --out results\stress\barren.csv" -NoNewWindow -PassThru -RedirectStandardOutput results\stress\barren.log
+& $py -m qubik.experiments.runner configs\ablation.yaml --workers 60 --limit 180
 $gpu.WaitForExit()
 Get-Content results\stress\barren.log
 Stop-Job $mon; Remove-Job $mon

@@ -6,9 +6,9 @@ import math
 import pytest
 import torch
 
-from qhnn import QuantumLayer, build_circuit, build_model, n_params, to_qasm
-from qhnn import simulator as sim
-from qhnn.backends import PennyLaneBackend, TorchBackend
+from qubik import QuantumLayer, build_circuit, build_model, n_params, to_qasm
+from qubik import simulator as sim
+from qubik.backends import PennyLaneBackend, TorchBackend
 
 torch.manual_seed(0)
 CONFIGS = list(itertools.product([1, 2, 3, 5], [1, 3], ["angle", "angle_x", "dense"],
@@ -65,7 +65,7 @@ def test_known_states():
 
 def test_bell_state_zz():
     # H + CNOT: <Z0 Z1> = 1, <Z0> = 0
-    from qhnn.circuits import Circuit
+    from qubik.circuits import Circuit
     c = Circuit(n_qubits=2, n_inputs=1)
     c.add("H", [0]); c.add("CNOT", [0, 1])
     angles = torch.zeros(1, 0)

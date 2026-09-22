@@ -1,4 +1,4 @@
-# qhnn — гибридные квантово-классические нейронные сети на PyTorch
+# Qubik — гибридные квантово-классические нейронные сети на PyTorch
 
 Библиотека для построения, обучения и исследования гибридных
 квантово-классических нейронных сетей. Разработана в рамках НИР
@@ -7,7 +7,7 @@
 ## Возможности
 
 - **Собственный батчевый симулятор вектора состояния** на PyTorch
-  (`qhnn/simulator.py`): все объекты батча исполняются одновременно,
+  (`qubik/simulator.py`): все объекты батча исполняются одновременно,
   работает на CPU и GPU, градиенты — через autograd.
 - **`QuantumLayer`** — обучаемый квантовый слой как обычный `nn.Module`:
   выбор кодирования (`angle`, `angle_x`, `dense`), анзаца (`strong`, `basic`,
@@ -17,7 +17,7 @@
   измерений `shots`.
 - **Два бэкенда** с одним интерфейсом: собственный (`torch`) и `pennylane`
   (эталон для проверки корректности).
-- **Экспорт схемы в OpenQASM 2.0** (`qhnn.to_qasm`) для запуска на
+- **Экспорт схемы в OpenQASM 2.0** (`qubik.to_qasm`) для запуска на
   реальном оборудовании (IBM Quantum и др.).
 - **Модели для честного сравнения**: `classical`, `classical_matched`
   (MLP с тем же числом параметров), `bottleneck` (гибрид без квантовой
@@ -36,7 +36,7 @@
 ```python
 import torch
 from torch import nn
-from qhnn import QuantumLayer
+from qubik import QuantumLayer
 
 model = nn.Sequential(
     nn.Linear(30, 4), nn.Tanh(),            # классический encoder
@@ -46,6 +46,8 @@ model = nn.Sequential(
 logits = model(torch.randn(8, 30))
 logits.sum().backward()                    # градиенты проходят через квантовый слой
 ```
+
+Сайт проекта с интерактивными результатами: https://tests.16vpn.uk
 
 ## Установка
 
@@ -67,16 +69,16 @@ python -m venv .venv
 | `configs/vision.yaml` | ResNet18 + голова, режим малых данных (MNIST, Fashion-MNIST, PneumoniaMNIST, BreastMNIST) |
 | `configs/vision_q12.yaml` | большие квантовые головы (12 кубитов) на изображениях |
 | `configs/init.yaml` | инициализация весов и точность глубоких схем |
-| `qhnn.experiments.barren` | barren plateaus: Var[∂C/∂θ] от числа кубитов (до 20), стратегии инициализации |
-| `qhnn.experiments.speed` | скорость симулятора против PennyLane |
+| `qubik.experiments.barren` | barren plateaus: Var[∂C/∂θ] от числа кубитов (до 20), стратегии инициализации |
+| `qubik.experiments.speed` | скорость симулятора против PennyLane |
 
 ```bash
-python -m qhnn.experiments.runner configs/tabular.yaml --workers 8
-python -m qhnn.features mnist fashion pneumonia --device cuda --n-train 10000 --n-test 2000
-python -m qhnn.experiments.runner configs/vision.yaml --workers 30
-python -m qhnn.experiments.barren --device cuda
-python -m qhnn.experiments.speed --devices cpu cuda
-python -m qhnn.experiments.analyze        # таблицы -> results/tables, рисунки -> results/figures
+python -m qubik.experiments.runner configs/tabular.yaml --workers 8
+python -m qubik.features mnist fashion pneumonia --device cuda --n-train 10000 --n-test 2000
+python -m qubik.experiments.runner configs/vision.yaml --workers 30
+python -m qubik.experiments.barren --device cuda
+python -m qubik.experiments.speed --devices cpu cuda
+python -m qubik.experiments.analyze        # таблицы -> results/tables, рисунки -> results/figures
 ```
 
 ## Запуск на сервере (Windows, Tesla V100)
@@ -94,12 +96,12 @@ powershell -File scripts\status.ps1                            # загрузк�
 резервирует буферы под все ядра и Windows упирается в лимит выделяемой памяти.
 
 Сайт с результатами: `site/` (статический, данные — `site/data/*.json` из
-`python -m qhnn.experiments.export_site`), обновляется скриптом `scripts\publish.ps1`.
+`python -m qubik.experiments.export_site`), обновляется скриптом `scripts\publish.ps1`.
 
 ## Структура
 
 ```
-qhnn/
+qubik/
   circuits.py     описание схем: кодирование, анзацы, экспорт в OpenQASM
   simulator.py    батчевый симулятор вектора состояния на PyTorch
   backends.py     бэкенды torch / pennylane, parameter-shift, shots

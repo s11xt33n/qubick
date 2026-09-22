@@ -1,4 +1,4 @@
-"""qhnn — библиотека для построения, обучения и исследования гибридных
+"""Qubik — библиотека для построения, обучения и исследования гибридных
 квантово-классических нейронных сетей на PyTorch."""
 from .circuits import Circuit, Gate, build_circuit, to_qasm
 from .layers import QuantumLayer

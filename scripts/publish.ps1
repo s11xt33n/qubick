@@ -8,8 +8,8 @@ $vps = "qhnn@195.133.75.140"
 $log = "D:\qhnn\results\publish.log"
 $i = 0
 while ($true) {
-    if ($i % 10 -eq 0) { & $py -m qhnn.experiments.analyze *> D:\qhnn\results\analyze.log }
-    & $py -m qhnn.experiments.export_site --out D:\qhnn\site\data *> $null
+    if ($i % 10 -eq 0) { & $py -m qubik.experiments.analyze *> D:\qhnn\results\analyze.log }
+    & $py -m qubik.experiments.export_site --out D:\qhnn\site\data *> $null
     $json = Get-ChildItem D:\qhnn\site\data\*.json | ForEach-Object { $_.FullName }
     & scp -q -o BatchMode=yes -i $key @json "${vps}:/var/www/qhnn/data/"
     $rc = $LASTEXITCODE

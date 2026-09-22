@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qhnn"
+name = "qubik"
 version = "0.2.0"
 description = "Библиотека для гибридных квантово-классических нейронных сетей на PyTorch"
 authors = [{ name = "Филадельфов Т. Г." }]
@@ -24,7 +24,7 @@ vision = ["torchvision", "medmnist"]
 dev = ["pytest"]
 
 [tool.setuptools.packages.find]
-include = ["qhnn*"]
+include = ["qubik*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

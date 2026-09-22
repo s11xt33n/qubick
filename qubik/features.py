@@ -7,7 +7,7 @@ neural networks»): замороженная ResNet18, обученная на I
 
 Признаки считаются один раз и сохраняются в results/features/<name>.npz.
 
-    python -m qhnn.features mnist fashion pneumonia --device cuda
+    python -m qubik.features mnist fashion pneumonia --device cuda
 """
 from __future__ import annotations
 

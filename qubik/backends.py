@@ -3,7 +3,7 @@
 Все бэкенды имеют одинаковый интерфейс: `backend(angles) -> <Z_k>` с формой
 (B, n_qubits), где angles — углы вентилей формы (B, G).
 
-- TorchBackend      — собственный симулятор (qhnn.simulator);
+- TorchBackend      — собственный симулятор (qubik.simulator);
                       градиенты: backprop или parameter-shift.
 - PennyLaneBackend  — эталон PennyLane default.qubit, для проверки
                       корректности и сравнения скорости.
