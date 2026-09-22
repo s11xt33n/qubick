@@ -255,7 +255,7 @@ function renderOverview() {
   let done = 0;
   if (p) Object.values(p.series).forEach((v) => (done += v.done));
   const kp = [
-    [done.toLocaleString("ru"), "обученных моделей"],
+    [done.toLocaleString("ru"), "обучений в итоговых сериях"],
     ["158", "автотестов"],
     ["9", "наборов данных"],
     ["2–20", "кубитов в экспериментах"],
@@ -705,7 +705,7 @@ function renderServer() {
   if (!d || !d.totals) return;
   const t = d.totals, bz = d.busy || {};
   const tiles = [
-    [(t.runs || 0).toLocaleString("ru"), "обученных моделей"],
+    [(t.runs || 0).toLocaleString("ru"), "обучений всего, с первыми сериями"],
     [(t.barren_points || 0).toLocaleString("ru"), "точек barren plateaus (до 20 кубитов)"],
     [t.train_core_hours != null ? `${Math.round(t.train_core_hours).toLocaleString("ru")} ч` : "—", "процессорного времени на обучение"],
     [bz.hours != null ? `${bz.hours.toFixed(1)} ч` : (t.wall_hours != null ? `${t.wall_hours.toFixed(1)} ч` : "—"), "основной период расчётов"],
