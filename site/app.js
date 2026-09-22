@@ -843,7 +843,7 @@ function route() {
   document.querySelectorAll("#tabs a").forEach((a) => a.classList.toggle("active", a.dataset.page === page));
   document.querySelectorAll("#page-results article.exp").forEach((a) => a.classList.toggle("active", a.id === exp));
   document.querySelectorAll("#exp-nav a").forEach((a) => a.classList.toggle("active", a.dataset.exp === exp));
-  $("enc").closest(".enc-switch").style.visibility = ["results", "encoder", "home"].includes(page) ? "visible" : "hidden";
+  $("enc").closest(".enc-switch").style.display = ["results", "encoder", "home"].includes(page) ? "" : "none";
   window.scrollTo({ top: 0, behavior: "instant" });
   // активная вкладка — в центр горизонтальной ленты, только если лента не помещается целиком
   const center = (box, el) => { if (box && el && box.scrollWidth > box.clientWidth + 2) box.scrollLeft = el.offsetLeft - (box.clientWidth - el.offsetWidth) / 2; };
