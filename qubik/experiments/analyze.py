@@ -65,10 +65,15 @@ def primary(df: pd.DataFrame) -> pd.DataFrame:
     return df[(df.enc == "-") | (df.enc == e)]
 
 
+def series_files(name, res=None):
+    """Файлы результатов серии: <name>.jsonl и части <name>.<суффикс>.jsonl."""
+    return [p for p in (res or RES).glob(f"{name}.*jsonl") if p.name.split(".")[0] == name]
+
+
 def _load(name):
     """Результаты серии: <name>.jsonl и <name>.gpu.jsonl (если считалось на GPU)."""
-    parts = [pd.read_json(p, lines=True) for p in sorted(RES.glob(f"{name}*.jsonl"))
-             if "_history" not in p.name or name.endswith("_history")]
+    # <name>.jsonl и <name>.<часть>.jsonl; шаблон <name>*.jsonl захватил бы и другую серию (vision -> vision_q12)
+    parts = [pd.read_json(p, lines=True) for p in sorted(series_files(name))]
     if parts:
         df = pd.concat(parts, ignore_index=True)
         if name.endswith("_history"):

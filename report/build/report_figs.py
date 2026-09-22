@@ -16,7 +16,7 @@ DS = {"vision:mnist": "MNIST", "vision:fashion": "Fashion-MNIST", "vision:pneumo
 
 
 def load(name):
-    fs = [f for f in glob.glob(str(R / f"{name}*.jsonl")) if "_history" not in f]
+    fs = [f for f in glob.glob(str(R / f"{name}.*jsonl")) if pathlib.Path(f).name.split(".")[0] == name]
     df = pd.concat([pd.read_json(f, lines=True) for f in fs]).drop_duplicates("run_id")
     if "enc" not in df: df["enc"] = None
     m = df.model.isin(["hybrid", "bottleneck"])

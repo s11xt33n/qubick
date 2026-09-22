@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from qubik.experiments.analyze import RES, _load, mean_std, paired_tests
+from qubik.experiments.analyze import RES, _load, mean_std, paired_tests, series_files
 from qubik.experiments.runner import ROOT, expand
 
 SERIES = ["tabular", "sweep", "ablation", "shots", "vision", "vision_q12", "init"]
@@ -242,7 +242,7 @@ def server():
     runs, core_h, gpu_runs = 0, 0.0, 0
     per = {}
     for name in SERIES:
-        parts = [f for f in RES.glob(f"{name}*.jsonl") if "_history" not in f.name]
+        parts = series_files(name)
         n = 0
         for f in parts:
             try:
