@@ -224,7 +224,7 @@ function renderProgress() {
     m.appendChild(f); d.append(l, val, m); tiles.appendChild(d);
   });
   const mon = p.monitor || [];
-  const t = mon.map((r) => r.time);
+  const t = mon.map((r) => String(r.time).slice(-8));
   const line = (id, key, max, unit) => {
     const c = chart(id);
     if (!c) return;
