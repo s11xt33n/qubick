@@ -723,17 +723,19 @@ function renderServer() {
   const eb = $("live-eyebrow");
   if (eb) eb.lastChild.textContent = fresh ? "В реальном времени" : "Прогон завершён";
   eb?.querySelector(".live-dot")?.classList.toggle("off", !fresh);
+  const nowBox = $("live-now");
+  if (nowBox) nowBox.style.display = fresh ? "" : "none";
   if (!d || !d.totals) return;
-  const t = d.totals;
+  const t = d.totals, bz = d.busy || {};
   const tiles = [
     [(t.runs || 0).toLocaleString("ru"), "обученных моделей"],
     [(t.barren_points || 0).toLocaleString("ru"), "точек barren plateaus (до 20 кубитов)"],
     [t.train_core_hours != null ? `${Math.round(t.train_core_hours).toLocaleString("ru")} ч` : "—", "процессорного времени на обучение"],
-    [t.wall_hours != null ? `${t.wall_hours.toFixed(1)} ч` : "—", "длительность прогона"],
-    [t.cpu_avg != null ? `${Math.round(t.cpu_avg)}%` : "—", "средняя загрузка CPU"],
-    [t.gpu_util_avg != null ? `${Math.round(t.gpu_util_avg)}%` : "—", "средняя загрузка V100"],
+    [bz.hours != null ? `${bz.hours.toFixed(1)} ч` : (t.wall_hours != null ? `${t.wall_hours.toFixed(1)} ч` : "—"), "основной период расчётов"],
+    [bz.cpu_avg != null ? `${Math.round(bz.cpu_avg)}%` : "—", "средняя загрузка CPU в период расчётов"],
+    [bz.gpu_util_avg != null ? `${Math.round(bz.gpu_util_avg)}%` : "—", "средняя загрузка V100 в период расчётов"],
     [t.gpu_temp_max != null ? `${t.gpu_temp_max} °C` : "—", "пиковая температура V100"],
-    [t.gpu_energy_kwh != null ? `${t.gpu_energy_kwh} кВт·ч` : "—", "энергия V100"],
+    [bz.procs_avg != null ? `~${bz.procs_avg}` : (t.procs_max || "—"), "параллельных процессов в среднем"],
   ];
   const k = $("srv-totals");
   k.textContent = "";
@@ -743,34 +745,47 @@ function renderServer() {
     const b1 = document.createElement("div"); b1.className = "label"; b1.textContent = l;
     e.append(a1, b1); k.appendChild(e);
   });
+  // данные: полный журнал с шагом 15 с (после выключения сервера) или последние замеры (пока идут расчёты)
+  const raw = (d.raw && d.raw.length) ? d.raw : ((p && p.monitor) || []).map((r) => ({ ...r, t: String(r.time).slice(-8) }));
   const period = (document.querySelector("#hist-period .active") || {}).dataset?.min || "all";
-  let hs;
-  if (period !== "all" && Number(period) <= 60 && p && p.monitor && p.monitor.length) {
-    // короткие периоды — исходные замеры каждые 15 секунд
-    hs = p.monitor.slice(-Number(period) * 4).map((r) => ({ ...r, t: String(r.time).slice(-8) }));
-  } else {
-    const all = d.history || [];
-    hs = period === "all" ? all : all.slice(-Number(period));
-  }
-  const xs = hs.map((r) => r.t);
-  const axisX = { ...base().xAxis, type: "category", data: xs, boundaryGap: false,
-    axisLabel: { color: css("--muted"), fontSize: 11, interval: Math.max(0, Math.floor(xs.length / 8)) } };
+  // окно заканчивается «сейчас», если сервер работает, и в конце основного периода нагрузки — если выключен
+  const endIdx = fresh || bz.end_index == null ? raw.length - 1 : bz.end_index;
+  const startIdx = period === "all" ? 0 : Math.max(0, endIdx - Number(period) * 4 + 1);
+  const note = $("hist-note");
+  if (note) note.textContent = fresh ? "Окно заканчивается текущим моментом. Ползунок под графиком сдвигает окно по всему журналу."
+    : `Сервер выключен — окно заканчивается в конце основного периода расчётов (${bz.end || "—"}). Ползунок под графиком сдвигает окно по всему журналу (замеры каждые 15 с).`;
+  const xs = raw.map((r) => r.t);
+  const zoomIn = { type: "inside", startValue: startIdx, endValue: endIdx };
   const tip = (unit) => ({ ...base().tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: css("--muted"), width: 1 } },
     formatter: (ps) => `${ps[0].axisValue}<br>` + ps.map((q) => tipRow(q.color, q.value == null ? "—" : `${q.value}${unit}`, q.seriesName)).join("") });
-  const line = (name, key, col) => ({ name, type: "line", showSymbol: false, data: hs.map((r) => r[key]),
-    lineStyle: { width: 2, color: col }, itemStyle: { color: col } });
+  const line = (name, key, col) => ({ name, type: "line", showSymbol: false, sampling: "lttb", data: raw.map((r) => r[key]),
+    lineStyle: { width: 1.6, color: col }, itemStyle: { color: col } });
+  const axisX = { ...base().xAxis, type: "category", data: xs, boundaryGap: false, axisLabel: { color: css("--muted"), fontSize: 11 } };
   let c = chart("ch-hist-load");
-  if (c) c.setOption(base({ tooltip: tip("%"), grid: { left: 44, right: 16, top: 40, bottom: 30 }, xAxis: axisX,
-    yAxis: { ...base().yAxis, type: "value", min: 0, max: 100 },
-    series: [line("CPU (80 потоков)", "cpu_load", css("--s1")), line("Tesla V100", "gpu_util", css("--s2"))] }), true);
+  if (c) {
+    c.group = "srv";
+    c.setOption(base({ tooltip: tip("%"), grid: { left: 44, right: 16, top: 40, bottom: 64 }, xAxis: axisX,
+      yAxis: { ...base().yAxis, type: "value", min: 0, max: 100 },
+      dataZoom: [zoomIn, { type: "slider", startValue: startIdx, endValue: endIdx, height: 22, bottom: 8,
+        borderColor: css("--border"), fillerColor: "rgba(57,135,229,0.15)", handleStyle: { color: css("--accent") },
+        textStyle: { color: css("--muted") }, dataBackground: { lineStyle: { color: css("--axis") }, areaStyle: { color: css("--grid") } } }],
+      series: [line("CPU (80 потоков)", "cpu_load", css("--s1")), line("Tesla V100", "gpu_util", css("--s2"))] }), true);
+  }
   c = chart("ch-hist-temp");
-  if (c) c.setOption(base({ legend: { show: false }, tooltip: tip(" °C"), grid: { left: 40, right: 12, top: 12, bottom: 28 }, xAxis: axisX,
-    yAxis: { ...base().yAxis, type: "value", scale: true },
-    series: [{ ...line("Температура", "gpu_temp", css("--s8")), areaStyle: { color: css("--s8"), opacity: 0.08 } }] }), true);
+  if (c) {
+    c.group = "srv";
+    c.setOption(base({ legend: { show: false }, tooltip: tip(" °C"), grid: { left: 40, right: 12, top: 12, bottom: 28 }, xAxis: axisX,
+      yAxis: { ...base().yAxis, type: "value", scale: true }, dataZoom: [zoomIn],
+      series: [{ ...line("Температура", "gpu_temp", css("--s8")), areaStyle: { color: css("--s8"), opacity: 0.08 } }] }), true);
+  }
   c = chart("ch-hist-power");
-  if (c) c.setOption(base({ legend: { show: false }, tooltip: tip(" Вт"), grid: { left: 40, right: 12, top: 12, bottom: 28 }, xAxis: axisX,
-    yAxis: { ...base().yAxis, type: "value", min: 0, max: 300 },
-    series: [{ ...line("Мощность", "gpu_power", css("--s2")), areaStyle: { color: css("--s2"), opacity: 0.08 } }] }), true);
+  if (c) {
+    c.group = "srv";
+    c.setOption(base({ legend: { show: false }, tooltip: tip(" Вт"), grid: { left: 40, right: 12, top: 12, bottom: 28 }, xAxis: axisX,
+      yAxis: { ...base().yAxis, type: "value", min: 0, max: 300 }, dataZoom: [zoomIn],
+      series: [{ ...line("Мощность", "gpu_power", css("--s2")), areaStyle: { color: css("--s2"), opacity: 0.08 } }] }), true);
+  }
+  if (typeof echarts !== "undefined") echarts.connect("srv");
   const per = t.per_series || {};
   const keys = Object.keys(per).filter((x) => per[x] > 0).sort((x, y) => per[y] - per[x]);
   c = chart("ch-hist-series");

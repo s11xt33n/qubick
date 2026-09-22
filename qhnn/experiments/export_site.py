@@ -191,6 +191,10 @@ def _monitor_frame():
     return m.dropna(subset=["ts"]).sort_values("ts").drop_duplicates("ts")
 
 
+def _num(v):
+    return None if pd.isna(v) else float(v)
+
+
 def server():
     """История нагрузки за весь прогон (средние по минутам) и итоговые цифры."""
     m = _monitor_frame()
@@ -210,6 +214,31 @@ def server():
             "gpu_energy_kwh": round(float(m.gpu_power.mean()) * hours / 1000, 2),
             "procs_max": int(m.python_procs.max()),
         }
+    if m is not None and len(m):
+        # полный журнал с шагом 15 с — для детального просмотра любого участка прогона
+        raw = m[["ts", "cpu_load", "gpu_util", "gpu_temp", "gpu_power", "python_procs"]].reset_index(drop=True)
+        out["raw"] = [{"t": r.ts.strftime("%H:%M:%S"), "cpu_load": _num(r.cpu_load), "gpu_util": _num(r.gpu_util),
+                       "gpu_temp": _num(r.gpu_temp), "gpu_power": _num(r.gpu_power), "python_procs": _num(r.python_procs)}
+                      for r in raw.itertuples()]
+        # период основной нагрузки: самый длинный непрерывный участок, где CPU (сглаж. 2 мин) >= 50 %
+        busy = raw.cpu_load.rolling(8, min_periods=1).mean() >= 50
+        best, cur, start = (0, 0), 0, 0
+        for i, b in enumerate(busy):
+            if b:
+                if cur == 0:
+                    start = i
+                cur += 1
+                if cur > best[1] - best[0]:
+                    best = (start, i + 1)
+            else:
+                cur = 0
+        if best[1] > best[0]:
+            seg = raw.iloc[best[0]:best[1]]
+            out["busy"] = {"start_index": int(best[0]), "end_index": int(best[1] - 1),
+                           "start": seg.ts.iloc[0].strftime("%d.%m.%Y %H:%M"), "end": seg.ts.iloc[-1].strftime("%d.%m.%Y %H:%M"),
+                           "hours": round((seg.ts.iloc[-1] - seg.ts.iloc[0]).total_seconds() / 3600, 2),
+                           "cpu_avg": round(float(seg.cpu_load.mean()), 1), "gpu_util_avg": round(float(seg.gpu_util.mean()), 1),
+                           "gpu_power_avg": round(float(seg.gpu_power.mean()), 1), "procs_avg": round(float(seg.python_procs.mean()))}
     runs, core_h, gpu_runs = 0, 0.0, 0
     per = {}
     for name in SERIES:
