@@ -285,7 +285,7 @@ FIG_TITLES = {
     "barren_init": "Barren plateaus: стратегии инициализации",
     "barren_ansatz": "Barren plateaus: три типа схем",
     "init": "Инициализация и точность глубоких схем",
-    "encoder": "Находка: масштаб encoder'а",
+    "encoder": "Энкодер: масштаб углов кодирования",
     "speed": "Скорость симулятора против PennyLane",
 }
 

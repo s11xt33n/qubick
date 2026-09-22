@@ -281,7 +281,7 @@ function renderOverview() {
   if (tb && tb.tests.length) {
     const sig = (vs) => tb.tests.filter((r) => r.vs === vs && r.significant && r.mean_diff > 0).map((r) => DS_LABEL[r.dataset]);
     const sigQ = sig("quantum");
-    if (sigQ.length) items.push(`Гибридная модель значимо точнее чистой квантовой сети на ${sigQ.join(", ")}: классический encoder снимает ограничение «признаков не больше, чем кубитов».`);
+    if (sigQ.length) items.push(`Гибридная модель значимо точнее чистой квантовой сети на ${sigQ.join(", ")}: классический энкодер снимает ограничение «признаков не больше, чем кубитов».`);
     const wins = tb.tests.filter((r) => ["classical_matched", "classical"].includes(r.vs) && r.significant && r.mean_diff > 0).length;
     const losses = tb.tests.filter((r) => ["classical_matched", "classical"].includes(r.vs) && r.significant && r.mean_diff < 0).length;
     items.push(`На табличных данных гибрид не превосходит классическую MLP того же размера: значимых побед ${wins}, значимых поражений ${losses} из ${tb.tests.filter((r) => ["classical_matched", "classical"].includes(r.vs)).length} сравнений.`);
