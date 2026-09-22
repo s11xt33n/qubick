@@ -749,10 +749,11 @@ function renderServer() {
   const raw = (d.raw && d.raw.length) ? d.raw : ((p && p.monitor) || []).map((r) => ({ ...r, t: String(r.time).slice(-8) }));
   const period = (document.querySelector("#hist-period .active") || {}).dataset?.min || "busy";
   // окно заканчивается «сейчас», если сервер работает, и в конце основного периода нагрузки — если выключен
-  const busyEnd = fresh || bz.end_index == null ? raw.length - 1 : Math.min(raw.length - 1, bz.end_index + 20);
+  const busyEnd = fresh || bz.end_index == null ? raw.length - 1 : bz.end_index;
   let startIdx, endIdx;
   if (period === "all") { startIdx = 0; endIdx = raw.length - 1; }
-  else if (period === "busy") { startIdx = 0; endIdx = busyEnd; }  // от начала прогона до конца основной нагрузки
+  // от начала прогона до конца основной нагрузки (+5 минут спада)
+  else if (period === "busy") { startIdx = 0; endIdx = fresh ? busyEnd : Math.min(raw.length - 1, busyEnd + 20); }
   else { endIdx = busyEnd; startIdx = Math.max(0, endIdx - Number(period) * 4 + 1); }
   const note = $("hist-note");
   if (note) note.textContent = fresh ? "Окно заканчивается текущим моментом. Ползунок под графиком сдвигает окно по всему журналу."
@@ -844,8 +845,10 @@ function route() {
   document.querySelectorAll("#exp-nav a").forEach((a) => a.classList.toggle("active", a.dataset.exp === exp));
   $("enc").closest(".enc-switch").style.visibility = ["results", "encoder", "home"].includes(page) ? "visible" : "hidden";
   window.scrollTo({ top: 0, behavior: "instant" });
-  document.querySelector("#tabs a.active")?.scrollIntoView({ block: "nearest", inline: "center" });
-  if (page === "results") document.querySelector("#exp-nav a.active")?.scrollIntoView({ block: "nearest", inline: "center" });
+  // активная вкладка — в центр горизонтальной ленты, только если лента не помещается целиком
+  const center = (box, el) => { if (box && el && box.scrollWidth > box.clientWidth + 2) box.scrollLeft = el.offsetLeft - (box.clientWidth - el.offsetWidth) / 2; };
+  center($("tabs"), document.querySelector("#tabs a.active"));
+  if (page === "results") center($("exp-nav"), document.querySelector("#exp-nav a.active"));
   syncHeader();
   // графики в скрытых вкладках имели нулевой размер — пересчитываем
   requestAnimationFrame(() => { renderAll(); Object.values(charts).forEach((c) => c.resize()); });
