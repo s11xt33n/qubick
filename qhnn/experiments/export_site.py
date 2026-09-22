@@ -33,7 +33,8 @@ def _clean(o):
         return int(o)
     if isinstance(o, (np.floating, float)):
         f = float(o)
-        return None if math.isnan(f) or math.isinf(f) else round(f, 6)
+        # 6 значащих цифр (а не знаков после запятой): дисперсии градиентов бывают ~1e-7
+        return None if math.isnan(f) or math.isinf(f) else float(f"{f:.6g}")
     if isinstance(o, (np.bool_,)):
         return bool(o)
     return o
