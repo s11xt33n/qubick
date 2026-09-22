@@ -747,10 +747,13 @@ function renderServer() {
   });
   // данные: полный журнал с шагом 15 с (после выключения сервера) или последние замеры (пока идут расчёты)
   const raw = (d.raw && d.raw.length) ? d.raw : ((p && p.monitor) || []).map((r) => ({ ...r, t: String(r.time).slice(-8) }));
-  const period = (document.querySelector("#hist-period .active") || {}).dataset?.min || "all";
+  const period = (document.querySelector("#hist-period .active") || {}).dataset?.min || "busy";
   // окно заканчивается «сейчас», если сервер работает, и в конце основного периода нагрузки — если выключен
-  const endIdx = fresh || bz.end_index == null ? raw.length - 1 : bz.end_index;
-  const startIdx = period === "all" ? 0 : Math.max(0, endIdx - Number(period) * 4 + 1);
+  const busyEnd = fresh || bz.end_index == null ? raw.length - 1 : Math.min(raw.length - 1, bz.end_index + 20);
+  let startIdx, endIdx;
+  if (period === "all") { startIdx = 0; endIdx = raw.length - 1; }
+  else if (period === "busy") { startIdx = 0; endIdx = busyEnd; }  // от начала прогона до конца основной нагрузки
+  else { endIdx = busyEnd; startIdx = Math.max(0, endIdx - Number(period) * 4 + 1); }
   const note = $("hist-note");
   if (note) note.textContent = fresh ? "Окно заканчивается текущим моментом. Ползунок под графиком сдвигает окно по всему журналу."
     : `Сервер выключен — окно заканчивается в конце основного периода расчётов (${bz.end || "—"}). Ползунок под графиком сдвигает окно по всему журналу (замеры каждые 15 с).`;
