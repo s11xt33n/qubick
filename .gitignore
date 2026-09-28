@@ -6,3 +6,5 @@ results/features/
 .pytest_cache/
 .tmp/
 results_server/
+results/locks/
+results/smoke*.jsonl
