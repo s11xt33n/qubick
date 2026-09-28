@@ -33,11 +33,13 @@ def predict(model: nn.Module, X: torch.Tensor, batch_size: int = 1024) -> np.nda
 
 def fit(model: nn.Module, data: Split, epochs: int = 300, batch_size: int = 32,
         lr: float = 0.01, weight_decay: float = 0.0, patience: int = 30,
-        seed: int = 0, device: str = "cpu", log_history: bool = False) -> dict:
+        seed: int = 0, device: str = "cpu", log_history: bool = False,
+        restore_best: bool = True) -> dict:
     """Adam + кросс-энтропия, ранняя остановка по loss на валидации.
 
-    Возвращаются метрики на тесте для весов с лучшей валидацией,
-    время обучения, число эпох и (опционально) история по эпохам.
+    Возвращаются метрики на тесте для весов с лучшей валидацией (restore_best=False —
+    для весов после последней эпохи), время обучения, число эпох и (опционально)
+    история по эпохам.
     """
     torch.manual_seed(seed)
     model.to(device)
@@ -81,10 +83,13 @@ def fit(model: nn.Module, data: Split, epochs: int = 300, batch_size: int = 32,
                 break
     train_time = time.perf_counter() - t0
 
-    model.load_state_dict(best_state)
+    if restore_best:
+        model.load_state_dict(best_state)
     y_pred = predict(model, Xte)
+    train_acc = float((predict(model, Xtr) == data.y_train).mean())
     return {
         **classification_metrics(data.y_test, y_pred),
+        "train_accuracy": train_acc,
         "val_loss": best,
         "epochs": epoch,
         "train_time": train_time,

@@ -6,6 +6,7 @@
     lr   — перцептрон 32–16: скорость обучения × функция активации;
     pl   — сравнение перцептронов с гибридной и чисто квантовой сетью на PennyLane
            (AngleEmbedding + StronglyEntanglingLayers, qml.qnn.TorchLayer);
+    reg  — переобучение перцептрона 64–32–16: ранняя остановка × L2-регуляризация (weight decay);
     time — время эпохи гибридной сети PennyLane от числа кубитов.
 
     python sem2_experiments.py <root> [--workers 10] [--series arch lr pl time]
@@ -101,8 +102,9 @@ def run(p: dict) -> dict:
     else:
         raise ValueError(model_name)
     epochs = p.get("epochs", 300)
-    res = fit(m, data, epochs=epochs, patience=p.get("patience", 30), lr=p.get("lr", 0.01),
-              batch_size=32, seed=seed)
+    es = p.get("es", True)  # ранняя остановка с возвратом лучших по валидации весов
+    res = fit(m, data, epochs=epochs, patience=p.get("patience", 30) if es else 10**9, lr=p.get("lr", 0.01),
+              batch_size=32, seed=seed, weight_decay=p.get("wd", 0.0), restore_best=es)
     res.pop("history", None)
     return {**p, "n_params": n_params(m), "in_dim": data.in_dim, **res}
 
@@ -122,6 +124,10 @@ def series(name):
             if model == "mlp":
                 r["hidden"] = [32, 16]
             runs.append(r)
+    elif name == "reg":
+        # переобучение и регуляризация: большая сеть 64–32–16, 300 эпох с ранней остановкой и без
+        for ds, es, wd, s in itertools.product(DATASETS, [False, True], [0.0, 1e-3, 1e-2], SEEDS):
+            runs.append({"dataset": ds, "model": "mlp", "hidden": [64, 32, 16], "es": es, "wd": wd, "seed": s})
     elif name == "time":
         # фиксированные 20 эпох без ранней остановки: сравнивается только время
         for nq, s in itertools.product([2, 4, 6, 8, 10], range(3)):
@@ -133,7 +139,7 @@ def series(name):
     return runs
 
 
-KEY = ("dataset", "model", "hidden", "lr", "act", "seed", "n_qubits", "epochs")
+KEY = ("dataset", "model", "hidden", "lr", "act", "seed", "n_qubits", "epochs", "es", "wd")
 
 
 def key(r):

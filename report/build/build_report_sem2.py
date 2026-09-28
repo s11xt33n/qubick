@@ -258,6 +258,24 @@ for b in C.BLOCKS:
             para("ref", r)
     elif kind == "code":
         code_block(b[1])
+    elif kind == "art":  # статья в формате шаблона: заголовок, автор, руководитель, организация, почта, текст
+        _, title, author, sup, aff, mail, items, refs = b
+        for k, v in (("atitle", title), ("aauth", author), ("asup", sup), ("aaff", aff), ("amail", mail)):
+            para(k, v)
+        for it in items:
+            if it[0] == "h":
+                keep_next(para("ahead", it[1]))
+            elif it[0] == "p":
+                para("ap", it[1])
+            elif it[0] == "li":
+                para("ali", it[1])
+            elif it[0] == "tcap":
+                keep_next(para("atcap", it[1]))
+            elif it[0] == "table":
+                table("atbl", it[1], it[2], [5.0, 3.8, 3.8, 3.9], align="lccc")
+        keep_next(para("ahead", "ЛИТЕРАТУРА"))
+        for r in refs:
+            para("aref", r)
     else:
         raise ValueError(kind)
     if new_page:  # первый добавленный элемент блока начинает новую страницу

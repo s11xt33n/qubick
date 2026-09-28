@@ -135,6 +135,86 @@
    "circles": 0.9912
   }
  ],
+ "reg": [
+  {
+   "es": false,
+   "wd": 0.0,
+   "train": 0.9957,
+   "test": 0.9657,
+   "gap_pp": 3.0,
+   "epochs": 300.0,
+   "iris": 0.9533,
+   "wine": 0.9778,
+   "breast_cancer": 0.9798,
+   "moons": 0.9238,
+   "circles": 0.9938
+  },
+  {
+   "es": false,
+   "wd": 0.001,
+   "train": 0.9932,
+   "test": 0.9628,
+   "gap_pp": 3.0,
+   "epochs": 300.0,
+   "iris": 0.9567,
+   "wine": 0.9722,
+   "breast_cancer": 0.9675,
+   "moons": 0.9212,
+   "circles": 0.9962
+  },
+  {
+   "es": false,
+   "wd": 0.01,
+   "train": 0.9852,
+   "test": 0.966,
+   "gap_pp": 1.9,
+   "epochs": 300.0,
+   "iris": 0.96,
+   "wine": 0.9778,
+   "breast_cancer": 0.9684,
+   "moons": 0.93,
+   "circles": 0.9938
+  },
+  {
+   "es": true,
+   "wd": 0.0,
+   "train": 0.9849,
+   "test": 0.9685,
+   "gap_pp": 1.6,
+   "epochs": 60.5,
+   "iris": 0.9533,
+   "wine": 0.9806,
+   "breast_cancer": 0.9763,
+   "moons": 0.9375,
+   "circles": 0.995
+  },
+  {
+   "es": true,
+   "wd": 0.001,
+   "train": 0.9851,
+   "test": 0.9674,
+   "gap_pp": 1.8,
+   "epochs": 53.2,
+   "iris": 0.9533,
+   "wine": 0.9806,
+   "breast_cancer": 0.9746,
+   "moons": 0.9338,
+   "circles": 0.995
+  },
+  {
+   "es": true,
+   "wd": 0.01,
+   "train": 0.9811,
+   "test": 0.9688,
+   "gap_pp": 1.2,
+   "epochs": 60.3,
+   "iris": 0.9633,
+   "wine": 0.9722,
+   "breast_cancer": 0.9798,
+   "moons": 0.9388,
+   "circles": 0.99
+  }
+ ],
  "pl": [
   {
    "dataset": "iris",

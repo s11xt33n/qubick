@@ -64,6 +64,15 @@ per = l.pivot_table(index=["act", "lr"], columns="dataset", values="accuracy", a
 out["lr"] = [{"act": r.act, "lr": r.lr, "mean": round(r.acc, 4), "epochs": round(r.epochs, 1),
               **{d: round(per.loc[(r.act, r.lr), d], 4) for d in DS}} for r in g.itertuples()]
 
+# ---------------------------------------------------------------- переобучение и регуляризация
+g = load("reg")
+rg = g.groupby(["es", "wd"]).agg(test=("accuracy", "mean"), train=("train_accuracy", "mean"),
+                                 epochs=("epochs", "mean")).reset_index()
+per = g.pivot_table(index=["es", "wd"], columns="dataset", values="accuracy", aggfunc="mean")
+out["reg"] = [{"es": bool(r.es), "wd": r.wd, "train": round(r.train, 4), "test": round(r.test, 4),
+               "gap_pp": round(100 * (r.train - r.test), 1), "epochs": round(r.epochs, 1),
+               **{d: round(per.loc[(r.es, r.wd), d], 4) for d in DS}} for r in rg.itertuples()]
+
 # ---------------------------------------------------------------- сравнение с PennyLane
 p = load("pl")
 MODELS = {"mlp": "Classical MLP 32–16", "mlp_matched": "MLP равного размера", "pl_hybrid": "Hybrid QNN (PennyLane)",
