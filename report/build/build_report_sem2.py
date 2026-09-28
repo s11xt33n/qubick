@@ -94,10 +94,20 @@ def figure(fname, width_cm, caption):
     ppr = el.find(W("pPr"))
     for bad in ppr.findall(W("ind")) + ppr.findall(W("mirrorIndents")):
         ppr.remove(bad)
+    # явный нулевой отступ: иначе отступ первой строки из стиля сдвигает рисунок вправо
+    ind = ppr.makeelement(W("ind"), {W("left"): "0", W("right"): "0", W("firstLine"): "0"})
+    jc = ppr.find(W("jc"))
+    (jc.addprevious(ind) if jc is not None else ppr.append(ind))
     add(keep_next(el))
     p = docx.text.paragraph.Paragraph(el, D._body)
     p.add_run().add_picture(str(FIG / fname), width=Cm(width_cm))
-    para("fcap", caption)
+    cap = para("fcap", caption)
+    cppr = cap.find(W("pPr"))
+    for bad in cppr.findall(W("ind")) + cppr.findall(W("mirrorIndents")):
+        cppr.remove(bad)
+    cind = cppr.makeelement(W("ind"), {W("left"): "0", W("right"): "0", W("firstLine"): "0"})
+    cjc = cppr.find(W("jc"))
+    (cjc.addprevious(cind) if cjc is not None else cppr.append(cind))
 
 
 def table(tpl, header, rows, widths_cm, tcap_kind="tcap", caption=None, align=None):
@@ -285,6 +295,21 @@ for b in C.BLOCKS:
         else:
             pb = copy.deepcopy(T["pb"]); first.addprevious(pb)
         new_page = False
+
+# номера страниц — Times New Roman 12 (в шаблоне поле PAGE без шрифта и берёт шрифт по умолчанию)
+for sec in D.sections:
+    for ft in (sec.footer, sec.first_page_footer, sec.even_page_footer):
+        for el in ft._element.iter(W("r"), W("pPr")):
+            target = el if el.tag == W("r") else el
+            rpr = target.find(W("rPr"))
+            if rpr is None:
+                rpr = target.makeelement(W("rPr"), {})
+                target.insert(0, rpr) if el.tag == W("r") else target.append(rpr)
+            for old_el in rpr.findall(W("rFonts")) + rpr.findall(W("sz")) + rpr.findall(W("szCs")):
+                rpr.remove(old_el)
+            rpr.insert(0, rpr.makeelement(W("rFonts"), {W(a): "Times New Roman" for a in ("ascii", "hAnsi", "cs", "eastAsia")}))
+            rpr.append(rpr.makeelement(W("sz"), {W("val"): "24"}))
+            rpr.append(rpr.makeelement(W("szCs"), {W("val"): "24"}))
 
 OUT.parent.mkdir(exist_ok=True)
 D.save(OUT)

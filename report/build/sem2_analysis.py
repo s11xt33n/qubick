@@ -73,6 +73,27 @@ out["reg"] = [{"es": bool(r.es), "wd": r.wd, "train": round(r.train, 4), "test":
                "gap_pp": round(100 * (r.train - r.test), 1), "epochs": round(r.epochs, 1),
                **{d: round(per.loc[(r.es, r.wd), d], 4) for d in DS}} for r in rg.itertuples()]
 
+# ---------------------------------------------------------------- кривые обучения
+c = load("curves")
+out["curves"] = {}
+fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
+for ax, (d, title) in zip(axes, (("moons", "Moons"), ("breast_cancer", "Breast Cancer"))):
+    g = c[c.dataset == d]
+    tr = np.mean([[h["train_loss"] for h in hist] for hist in g.history], axis=0)
+    va = np.mean([[h["val_loss"] for h in hist] for hist in g.history], axis=0)
+    ep = np.arange(1, len(tr) + 1)
+    best = int(va.argmin()) + 1
+    out["curves"][d] = {"best_epoch": best, "val_min": round(float(va.min()), 3), "val_end": round(float(va[-1]), 3),
+                        "train_end": round(float(tr[-1]), 4), "train_acc": round(float(g.train_accuracy.mean()), 4),
+                        "test_acc": round(float(g.accuracy.mean()), 4)}
+    ax.plot(ep, tr, color="#2a78d6", lw=1.8, label="обучающая выборка")
+    ax.plot(ep, va, color="#c44e52", lw=1.8, label="валидационная выборка")
+    ax.axvline(best, color="#555", ls="--", lw=1.2, label=f"минимум на валидации ({best} эпоха)")
+    ax.set_yscale("log"); ax.set_xlabel("Эпоха"); ax.set_title(title)
+axes[0].set_ylabel("Функция потерь (среднее по 10 запускам)")
+axes[0].legend(fontsize=8.5)
+fig.tight_layout(); fig.savefig(FIG / "fig_curves.png", bbox_inches="tight"); plt.close(fig)
+
 # ---------------------------------------------------------------- сравнение с PennyLane
 p = load("pl")
 MODELS = {"mlp": "Classical MLP 32–16", "mlp_matched": "MLP равного размера", "pl_hybrid": "Hybrid QNN (PennyLane)",
@@ -97,7 +118,7 @@ for d in DS:
         tests.append({"dataset": d, "vs": other, "diff_pp": round(100 * diff.mean(), 1), "p": round(pv, 4)})
 out["tests"] = tests
 
-fig, ax = plt.subplots(figsize=(9.5, 4.0))
+fig, ax = plt.subplots(figsize=(8.0, 4.2))
 w = 0.2
 colors = {"mlp": "#2a78d6", "mlp_matched": "#46b3d1", "pl_hybrid": "#7b5fb8", "pl_quantum": "#c44e52"}
 for i, m in enumerate(MODELS):
@@ -105,8 +126,9 @@ for i, m in enumerate(MODELS):
     ax.bar(np.arange(len(DS)) + (i - 1.5) * w, [v["acc"] for v in vals], w, yerr=[v["acc_std"] for v in vals],
            capsize=2, color=colors[m], label=MODELS[m])
 ax.set_xticks(range(len(DS))); ax.set_xticklabels(DS.values())
-ax.set_ylim(0.4, 1.02); ax.set_ylabel("Accuracy (среднее ± std)")
-ax.legend(ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False)
+ax.set_ylim(0.4, 1.02); ax.set_ylabel("Accuracy (среднее ± std)", fontsize=11)
+ax.tick_params(labelsize=10.5)
+ax.legend(ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False, fontsize=10.5)
 fig.tight_layout(); fig.savefig(FIG / "fig_pl_acc.png", bbox_inches="tight"); plt.close(fig)
 
 # ---------------------------------------------------------------- время эпохи от числа кубитов

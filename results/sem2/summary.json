@@ -215,6 +215,24 @@
    "circles": 0.99
   }
  ],
+ "curves": {
+  "moons": {
+   "best_epoch": 15,
+   "val_min": 0.179,
+   "val_end": 0.675,
+   "train_end": 0.0516,
+   "train_acc": 0.9792,
+   "test_acc": 0.9238
+  },
+  "breast_cancer": {
+   "best_epoch": 4,
+   "val_min": 0.072,
+   "val_end": 0.416,
+   "train_end": 0.0,
+   "train_acc": 1.0,
+   "test_acc": 0.9798
+  }
+ },
  "pl": [
   {
    "dataset": "iris",
