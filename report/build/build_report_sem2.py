@@ -98,6 +98,10 @@ def figure(fname, width_cm, caption):
     ind = ppr.makeelement(W("ind"), {W("left"): "0", W("right"): "0", W("firstLine"): "0"})
     jc = ppr.find(W("jc"))
     (jc.addprevious(ind) if jc is not None else ppr.append(ind))
+    sp = ppr.find(W("spacing"))  # отступ сверху: белый фон картинки не должен закрывать линию таблицы над ней
+    if sp is None:
+        sp = ppr.makeelement(W("spacing"), {}); ind.addprevious(sp)
+    sp.set(W("before"), "160")
     add(keep_next(el))
     p = docx.text.paragraph.Paragraph(el, D._body)
     p.add_run().add_picture(str(FIG / fname), width=Cm(width_cm))

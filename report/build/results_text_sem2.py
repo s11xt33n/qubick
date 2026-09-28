@@ -111,17 +111,21 @@ _cls = [t["p"] for t in S["tests"] if t["vs"] in ("mlp", "mlp_matched")]
 _ep_ratio = [pl(d, "pl_hybrid")["epoch_ms"] / pl(d, "mlp")["epoch_ms"] for d in DS]
 _tr_ratio = [pl(d, "pl_hybrid")["train_s"] / pl(d, "mlp")["train_s"] for d in DS]
 _qd = [test(d, "pl_quantum")["diff_pp"] for d in ("iris", "wine", "breast_cancer")]
-TAB_PL = ("Таблица 7 – Сравнение моделей (среднее по 10 запускам)",
-          ["Набор", "Модель", "Accuracy", "F1-score", "Эпоха, мс", "Параметров"],
-          [[DS[d] if i == 0 else "", MODELS[m], f"{f(pl(d, m)['acc'])} ± {f(pl(d, m)['acc_std'])}",
-            f(pl(d, m)["f1"]), f(pl(d, m)["epoch_ms"], 1), str(pl(d, m)["params"])]
-           for d in DS for i, m in enumerate(MODELS)])
+TAB_PL = ("Таблица 7 – Accuracy моделей (среднее по 10 запускам) и среднее время эпохи",
+          ["Модель", *DS.values(), "Эпоха, мс"],
+          [[MODELS[m], *[f(pl(d, m)["acc"]) for d in DS],
+            f(sum(pl(d, m)["epoch_ms"] for d in DS) / len(DS), 1)] for m in MODELS])
+_f1_gap = max(abs(r["acc"] - r["f1"]) for r in S["pl"])
+_params = {m: [pl(d, m)["params"] for d in DS] for m in MODELS}
 FIG_PL = ("fig_pl_acc.png", 13.5, "Рисунок 3 – Accuracy классических моделей и моделей PennyLane (среднее ± стандартное отклонение)")
 R44 = [
     "В четвёртой серии перцептроны сравнивались с моделями PennyLane (таблица 7, рисунок 3). Кроме перцептрона "
     "32–16 в сравнение включён перцептрон равного размера — с одним скрытым слоем, ширина которого подобрана так, "
     f"чтобы число параметров совпадало с гибридной моделью (например, {pl('iris', 'mlp_matched')['params']} параметров "
-    "на Iris). Это позволяет отделить влияние архитектуры от влияния размера модели.",
+    "на Iris). Это позволяет отделить влияние архитектуры от влияния размера модели. В зависимости от числа признаков "
+    f"у гибридной модели от {min(_params['pl_hybrid'])} до {max(_params['pl_hybrid'])} параметров, у перцептрона 32–16 — "
+    f"от {min(_params['mlp'])} до {max(_params['mlp'])}. F1-score во всех случаях отличается от accuracy не более чем "
+    f"на {f(_f1_gap, 2)}, поэтому в таблице приведена только accuracy.",
 ]
 R44B = [
     f"Гибридная модель показала качество на уровне перцептронов: на Iris и Breast Cancer немного выше "
