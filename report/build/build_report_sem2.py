@@ -12,11 +12,11 @@ sys.stdout.reconfigure(encoding="utf-8")
 root = pathlib.Path(sys.argv[1])
 toc_pages = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")) if len(sys.argv) > 2 else {}
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import report_content as C
+import report_content_sem2 as C
 
 SRC = root / "src" / "Отчет студента-09-535-2 сем.docx"
 OUT = root / "report" / "Отчет_Филадельфов_09-535_2_сем.docx"
-FIG = root / "report" / "fig"
+FIG = root / "report" / "sem2" / "fig"
 
 D = docx.Document(SRC)
 body = D.element.body
@@ -203,9 +203,6 @@ def code_block(text):
 
 
 # ------------------------------------------------------------------ содержание (TOC)
-TOC = [("ВВЕДЕНИЕ", "intro"), ("1. " + C.CH1_TITLE, "ch1"), ("2. " + C.CH2_TITLE, "ch2"),
-       ("3. " + C.CH3_TITLE, "ch3"), ("4. " + C.CH4_TITLE, "ch4"), ("ЗАКЛЮЧЕНИЕ", "concl"),
-       ("СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ", "refs"), ("ПРИЛОЖЕНИЯ", "apx")]
 content = sdt.find(W("sdtContent"))
 tps = content.findall(W("p"))
 entry_ppr = copy.deepcopy(tps[1].find(W("pPr")))
@@ -213,7 +210,7 @@ text_run = next(r for r in tps[1].iter(W("r")) if r.find(W("t")) is not None and
 entry_rpr = copy.deepcopy(text_run.find(W("rPr")))
 for p in tps[1:]:
     content.remove(p)
-for title, key in TOC:
+for title, key in C.TOC:
     p = content.makeelement(W("p"), {}); p.append(copy.deepcopy(entry_ppr))
     for kind, val in (("t", title), ("tab", None), ("t", str(toc_pages.get(key, "")))):
         r = p.makeelement(W("r"), {})
@@ -227,95 +224,49 @@ for title, key in TOC:
         p.append(r)
     content.append(p)
 
-# ------------------------------------------------------------------ основная часть
-pagebreak(); para("h1", "ВВЕДЕНИЕ")
-for t in C.INTRO: para("p", t)
+# ------------------------------------------------------------------ текст по блокам
+def break_before(el):
+    """Раздел с новой страницы: свойство абзаца, а не пустой абзац с разрывом (он давал лишние пустые страницы)."""
+    ppr = el.find(W("pPr"))
+    if ppr is None:
+        ppr = el.makeelement(W("pPr"), {}); el.insert(0, ppr)
+    ppr.insert(1 if ppr.find(W("pStyle")) is not None else 0, ppr.makeelement(W("pageBreakBefore"), {}))
 
-pagebreak(); keep_next(para("h2", C.CH1_TITLE))
-for t in C.CH1: para("p", t)
 
-pagebreak(); keep_next(para("h2", C.CH2_TITLE))
-for t in C.CH2_A: para("p", t)
-cap, head, rows = C.TAB1; table("tbl2", head, rows, [4.3, 12.2], caption=cap, align="ll")
-figure(*C.FIG1)
-for t in C.CH2_B: para("p", t)
-figure(*C.FIG2)
-for t in C.CH2_C: para("p", t)
-figure(*C.FIG3)
-
-pagebreak(); keep_next(para("h2", C.CH3_TITLE))
-for t in C.CH3_A: para("p", t)
-cap, head, rows = C.TAB2; table("tbl4", head, rows, [4.8, 5.4, 3.8, 2.5], caption=cap, align="llcc")
-for t in C.CH3_B: para("p", t)
-cap, head, rows = C.TAB3; table("tbl3", head, rows, [4.2, 7.0, 5.3], caption=cap, align="lll")
-for t in C.CH3_C: para("p", t)
-cap, head, rows = C.TAB4; table("tbl3", head, rows, [4.6, 9.2, 2.7], caption=cap, align="llc")
-for t in C.CH3_D: para("p", t)
-figure(*C.FIG4)
-
-pagebreak(); keep_next(para("h2", C.CH4_TITLE))
-def sub(title): keep_next(para("p", title, bold=True))
-sub(C.S41)
-for t in C.S41_A: para("p", t)
-cap, head, rows = C.TAB5; table("tbl7", head, rows, [3.5, 2.6, 2.6, 2.6, 2.6, 2.6], caption=cap, align="lccccc")
-figure(*C.FIG5)
-for t in C.S41_B: para("p", t)
-sub(C.S42)
-for t in C.S42_A: para("p", t)
-figure(*C.FIG6)
-for t in C.S42_B: para("p", t)
-sub(C.S43)
-for t in C.S43_A: para("p", t)
-figure(*C.FIG7)
-cap, head, rows = C.TAB6; table("tbl7", head, rows, [4.5, 2.4, 2.4, 2.4, 2.4, 2.4], caption=cap, align="lccccc")
-for t in C.S43_B: para("p", t)
-sub(C.S44)
-for t in C.S44_A: para("p", t)
-figure(*C.FIG8)
-for t in C.S44_B: para("p", t)
-cap, head, rows = C.TAB7; table("tbl4", head, rows, [3.2, 5.6, 3.9, 3.8], caption=cap, align="llcc")
-sub(C.S45)
-for t in C.S45_A: para("p", t)
-figure(*C.FIG9)
-for t in C.S45_B: para("p", t)
-sub(C.S46)
-for t in C.S46_A: para("p", t)
-
-pagebreak(); para("h1c", "ЗАКЛЮЧЕНИЕ")
-for t in C.CONCL: para("p", t)
-header = ["Шифр\nкомпетенции", "Расшифровка приобретаемой компетенции", "Расшифровка освоения компетенции"]
-table("tblcomp", ["Шифр компетенции", "Расшифровка приобретаемой компетенции", "Расшифровка освоения компетенции"],
-      C.TAB8, [2.6, 6.4, 7.5], caption=C.TAB8_CAP, align="cll")
-
-pagebreak(); para("h1", "СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ")
-for r in C.REFS: para("ref", r)
-
-# ------------------------------------------------------------------ приложения
-pagebreak(); para("h1c", "ПРИЛОЖЕНИЯ")
-para("apx", "Приложение 1")
-para("atitle", C.ART_TITLE)
-para("aauth", "Филадельфов Т. Г.")
-para("asup", "Научный руководитель канд. физ.-мат. наук, доцент, заведующий кафедрой САИТ Васильев А. В.")
-para("aaff", "Казанский (Приволжский) федеральный университет, Институт вычислительной математики и информационных технологий")
-para("amail", "Ipod050505@gmail.com")
-for kind, *val in C.ART:
-    if kind == "h": keep_next(para("ahead", val[0]))
-    elif kind == "p": para("ap", val[0])
-    elif kind == "li": para("ali", val[0])
-    elif kind == "tcap": keep_next(para("atcap", val[0]))
-    elif kind == "table": table("atbl", val[0], val[1], [5.4, 3.4, 3.6, 4.1], align="lccc")
-for r in C.ART_REFS: para("aref", r)
-
-pagebreak(); para("apx2", "Приложение 2")
-para("p", "Ядро симулятора вектора состояния (qubik/simulator.py):")
-code_block(source_of("qubik/simulator.py", ["apply_1q", "apply_perm", "run_circuit", "expval_z"]))
-pagebreak(); para("apx2", "Приложение 3")
-para("p", "Правило сдвига параметра и энкодер гибридной модели (qubik/backends.py, qubik/models.py):")
-ps = source_of("qubik/backends.py", ["_ParameterShift"])
-code_block(ps)
-para("code", " ")
-code_block(source_of("qubik/models.py", ["make_encoder"]).split('    """')[0].rstrip() + "\n" +
-           "\n".join(l for l in source_of("qubik/models.py", ["make_encoder"]).splitlines() if l.strip().startswith(("if enc", "return nn", "raise"))))
+new_page = False
+for b in C.BLOCKS:
+    kind = b[0]
+    if kind == "pb":
+        new_page = True
+        continue
+    n_before = len(body)
+    if kind in ("h1", "h1c", "apx", "apx2"):
+        para(kind, b[1])
+    elif kind == "ch":
+        keep_next(para("h2", b[1]))
+    elif kind == "sub":
+        keep_next(para("p", b[1], bold=True))
+    elif kind == "p":
+        para("p", b[1])
+    elif kind == "table":
+        _, tpl, cap, head, rows, widths, align = b
+        table(tpl, head, rows, widths, caption=cap, align=align)
+    elif kind == "fig":
+        figure(b[1], b[2], b[3])
+    elif kind == "refs":
+        for r in b[1]:
+            para("ref", r)
+    elif kind == "code":
+        code_block(b[1])
+    else:
+        raise ValueError(kind)
+    if new_page:  # первый добавленный элемент блока начинает новую страницу
+        first = list(body)[n_before - 1]
+        if first.tag == W("p"):
+            break_before(first)
+        else:
+            pb = copy.deepcopy(T["pb"]); first.addprevious(pb)
+        new_page = False
 
 OUT.parent.mkdir(exist_ok=True)
 D.save(OUT)
