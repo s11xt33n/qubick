@@ -3,7 +3,7 @@
 
     python build_report.py <root> [toc.json]
 """
-import ast, copy, json, pathlib, sys, textwrap
+import ast, copy, json, pathlib, re, sys, textwrap
 import docx
 from docx.shared import Cm
 from docx.oxml.ns import qn
@@ -247,6 +247,48 @@ def break_before(el):
     ppr.insert(1 if ppr.find(W("pStyle")) is not None else 0, ppr.makeelement(W("pageBreakBefore"), {}))
 
 
+# ------------------------------------------------------------------ нумерация источников по порядку упоминания
+CITE = re.compile(r"\[(\d+(?:\s*[,–-]\s*\d+)*)\]")
+
+
+def cite_nums(group):
+    nums = []
+    for part in group.split(","):
+        part = part.strip()
+        if re.fullmatch(r"\d+\s*[–-]\s*\d+", part):
+            a, z = map(int, re.split(r"\s*[–-]\s*", part))
+            nums += list(range(a, z + 1))
+        else:
+            nums.append(int(part))
+    return nums
+
+
+def cite_fmt(nums):
+    """[3, 4, 5, 8] -> «3–5, 8»."""
+    nums, out, i = sorted(set(nums)), [], 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
+            j += 1
+        out.append(f"{nums[i]}–{nums[j]}" if j - i >= 2 else ", ".join(map(str, nums[i:j + 1])))
+        i = j + 1
+    return ", ".join(out)
+
+
+_order = []
+for b in C.BLOCKS:  # статья (блок "art") не учитывается: у неё свой список литературы
+    if b[0] == "p":
+        for m in CITE.finditer(b[1]):
+            _order += [n for n in cite_nums(m.group(1)) if n not in _order]
+_refs = next(b[1] for b in C.BLOCKS if b[0] == "refs")
+_order += [n for n in range(1, len(_refs) + 1) if n not in _order]  # неупомянутые — в конец
+RENUM = {old: new for new, old in enumerate(_order, 1)}
+
+
+def renum(text):
+    return CITE.sub(lambda m: "[" + cite_fmt([RENUM[n] for n in cite_nums(m.group(1))]) + "]", text)
+
+
 new_page = False
 for b in C.BLOCKS:
     kind = b[0]
@@ -261,15 +303,15 @@ for b in C.BLOCKS:
     elif kind == "sub":
         keep_next(para("p", b[1], bold=True))
     elif kind == "p":
-        para("p", b[1])
+        para("p", renum(b[1]))
     elif kind == "table":
         _, tpl, cap, head, rows, widths, align = b
         table(tpl, head, rows, widths, caption=cap, align=align)
     elif kind == "fig":
         figure(b[1], b[2], b[3])
     elif kind == "refs":
-        for r in b[1]:
-            para("ref", r)
+        for old in _order:
+            para("ref", b[1][old - 1])
     elif kind == "code":
         code_block(b[1])
     elif kind == "art":  # статья в формате шаблона: заголовок, автор, руководитель, организация, почта, текст
