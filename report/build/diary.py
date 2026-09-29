@@ -52,6 +52,86 @@ for p in d.paragraphs:
     for r in p.runs:
         if "Геогиевич" in r.text:
             r.text = r.text.replace("Геогиевич", "Георгиевич"); fixed += 1
+# --- титульный лист и шапка: поля — подчёркнутые табуляции вместо «____», подписи по центру полей
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from fix_assignment import run, set_tabs, clear_runs, base_rpr, text_of, W  # noqa: E402
+
+body = d.element.body
+sp = body.find(W("sectPr"))
+width = int(sp.find(W("pgSz")).get(W("w"))) - int(sp.find(W("pgMar")).get(W("left"))) - int(sp.find(W("pgMar")).get(W("right")))
+pars = list(body.iter(W("p")))
+
+
+def next_text_par(par):
+    nxt = par.getnext()
+    while nxt is not None and not text_of(nxt).strip():
+        nxt = nxt.getnext()
+    return nxt
+
+
+def caption(par, stops_texts):
+    rpr = base_rpr(par, False)
+    clear_runs(par)
+    set_tabs(par, [("center", c) for c, _ in stops_texts])
+    for _, txt in stops_texts:
+        run(par, rpr, tab=True)
+        run(par, rpr, txt)
+
+
+# «Филадельфов Тихон Георгиевич | 09-535 | подпись»
+stud = next(p for p in pars if "Филадельфов Тихон" in text_of(p))
+urpr = base_rpr(stud, True)
+clear_runs(stud)
+set_tabs(stud, [("left", 5200), ("left", 5700), ("center", 6550), ("left", 7400), ("left", 7900), ("right", width)])
+run(stud, urpr, "Филадельфов Тихон Георгиевич", underline=True)
+run(stud, urpr, tab=True, underline=True)
+run(stud, urpr, tab=True)
+run(stud, urpr, tab=True, underline=True)
+run(stud, urpr, "09-535", underline=True)
+run(stud, urpr, tab=True, underline=True)
+run(stud, urpr, tab=True)
+run(stud, urpr, tab=True, underline=True)
+caption(next_text_par(stud), [(2600, "(ФИО студента)"), (6550, "(Группа)"), (8840, "(Подпись)")])
+
+# «должность | ФИО | подпись» для руководителей
+for name in ("Васильев А.В.", "Андрианова А.А."):
+    par = next(p for p in pars if name in text_of(p) and "_" in text_of(p))
+    position = text_of(par).split(name)[0].replace("_", "").strip()
+    urpr = base_rpr(par, True)
+    clear_runs(par)
+    set_tabs(par, [("left", 4200), ("left", 4700), ("center", 6050), ("left", 7400), ("left", 7900), ("right", width)])
+    run(par, urpr, position, underline=True)
+    run(par, urpr, tab=True, underline=True)
+    run(par, urpr, tab=True)
+    run(par, urpr, tab=True, underline=True)
+    run(par, urpr, name, underline=True)
+    run(par, urpr, tab=True, underline=True)
+    run(par, urpr, tab=True)
+    run(par, urpr, tab=True, underline=True)
+    caption(next_text_par(par), [(8840, "(Подпись)")])
+
+# лишний пробел в дате
+for par in pars:
+    for tx in par.iter(W("t")):
+        if tx.text and "февраля  2026" in tx.text:
+            tx.text = tx.text.replace("февраля  2026", "февраля 2026")
+
+# шапка второй страницы: «ФИО обучающегося, группа ___Филадельфов Т.Г.____ группа 09-535»
+head = next(p for p in pars if text_of(p).startswith("ФИО обучающегося"))
+runs = [r for r in head.iter(W("r"))]
+label = next(r for r in runs if "ФИО обучающегося" in text_of(r))
+urpr = base_rpr(head, True)
+for r in runs:
+    if r is not label:
+        r.getparent().remove(r)
+for x in list(head):
+    if x.tag == W("proofErr"):
+        head.remove(x)
+set_tabs(head, [("right", width)])
+run(head, base_rpr(head, False), " ")
+run(head, urpr, "Филадельфов Т. Г., 09-535", underline=True)
+run(head, urpr, tab=True, underline=True)
+
 d.save(out)
 print("saved", out, "rows changed:", len(NEW), "typo fixed:", fixed)
 for i, r in enumerate(t.rows):
