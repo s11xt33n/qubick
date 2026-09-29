@@ -27,7 +27,8 @@ def test(ds, vs):
 
 
 def pv(p):
-    return "p < 0,001" if p < 0.001 else f"p = {f(p, 3)}"
+    """p-значение как формула (редактор формул)."""
+    return r"$p < \text{0,001}$" if p < 0.001 else "$p = \\text{" + f(p, 3) + "}$"
 
 
 def arch(k):
@@ -130,7 +131,7 @@ R44B = [
     f"({f(_h['iris']['acc'])} и {f(_h['breast_cancer']['acc'])} против {f(_m['iris']['acc'])} и "
     f"{f(_m['breast_cancer']['acc'])} у перцептрона 32–16), на Wine и Moons немного ниже ({f(_h['wine']['acc'])} и "
     f"{f(_h['moons']['acc'])} против {f(_m['wine']['acc'])} и {f(_m['moons']['acc'])}). Ни одно из этих различий "
-    f"не является статистически значимым (по критерию Уилкоксона p от {f(min(_cls), 3)} до {f(max(_cls), 2)}). "
+    f"не является статистически значимым (по критерию Уилкоксона $p$ от {f(min(_cls), 3)} до {f(max(_cls), 2)}). "
     f"Квантовая модель без энкодера значимо уступает гибридной на Iris, Wine и Breast Cancer — на "
     f"{f(min(_qd), 1)}–{f(max(_qd), 1)} п. п. ({pv(test('breast_cancer', 'pl_quantum')['p'])} для Breast Cancer): "
     "признаки подаются в углы напрямую, а для Wine и Breast Cancer ещё и сжимаются до четырёх, и часть информации "

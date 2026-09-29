@@ -31,6 +31,21 @@ for i, text in NEW.items():
     for extra in cell.paragraphs[1:]:
         extra._element.getparent().remove(extra._element)
 
+# даты — единообразно: ДД.ММ.2026 (в исходнике часть дат была с годом «26», часть — «2026»)
+import re
+dates = 0
+for row in t.rows[1:]:
+    cell = row.cells[0]
+    m = re.fullmatch(r"\s*(\d{2})\.(\d{2})\.(\d{2}|\d{4})\s*", cell.text)
+    if not m:
+        continue
+    p = cell.paragraphs[0]
+    p.runs[0].text = f"{m.group(1)}.{m.group(2)}.2026"
+    for r in p.runs[1:]:
+        r._element.getparent().remove(r._element)
+    dates += 1
+print("dates normalized:", dates)
+
 # опечатка в отчестве
 fixed = 0
 for p in d.paragraphs:

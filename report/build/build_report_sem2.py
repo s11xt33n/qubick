@@ -18,7 +18,10 @@ import sys
 import time
 
 import docx
+import latex2mathml.converter
+import mathml2omml
 import pymupdf
+from docx.oxml import parse_xml
 from docx.oxml.ns import qn
 from docx.shared import Cm
 
@@ -104,6 +107,48 @@ def page_break_before(el):
     return ppr_set(el, "pageBreakBefore", before=("snapToGrid", "numPr", "spacing", "ind", "jc", "rPr"))
 
 
+# ------------------------------------------------------------------ формулы (редактор формул Word, OMML)
+M_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+MATH = re.compile(r"\$(.+?)\$")
+
+
+def omath(tex):
+    """LaTeX -> элемент m:oMath; у каждого фрагмента шрифт Cambria Math 14 pt (так формулы выглядят в Word)."""
+    xml = mathml2omml.convert(latex2mathml.converter.convert(tex))
+    el = parse_xml(f'<p xmlns:m="{M_NS}" xmlns:w="{W_NS}">{xml}</p>')[0]
+    for r in el.iter(f"{{{M_NS}}}r"):
+        rpr = parse_xml(f'<w:rPr xmlns:w="{W_NS}"><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/>'
+                        '<w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr>')
+        mrpr = r.find(f"{{{M_NS}}}rPr")
+        (mrpr.addnext(rpr) if mrpr is not None else r.insert(0, rpr))
+    return el
+
+
+def fill_rich(el, text):
+    """Текст абзаца с формулами в $...$: обычный текст — run по образцу, формулы — m:oMath."""
+    runs = [r for r in el.iter(W("r")) if r.find(W("t")) is not None]
+    rpr = copy.deepcopy(runs[0].find(W("rPr")))
+    for child in list(el):
+        if child.tag != W("pPr"):
+            el.remove(child)
+    pos = 0
+    for m in list(MATH.finditer(text)) + [None]:
+        chunk = text[pos:m.start()] if m else text[pos:]
+        if chunk:
+            r = el.makeelement(W("r"), {})
+            r.append(copy.deepcopy(rpr))
+            t = r.makeelement(W("t"), {})
+            t.text = chunk
+            t.set(XML_SPACE, "preserve")
+            r.append(t)
+            el.append(r)
+        if m:
+            el.append(omath(m.group(1)))
+            pos = m.end()
+    return el
+
+
 # ------------------------------------------------------------------ нумерация источников по порядку упоминания
 CITE = re.compile(r"\[(\d+(?:\s*[,–-]\s*\d+)*)\]")
 
@@ -134,7 +179,7 @@ def cite_fmt(nums):
 
 _order = []
 for b in C.BLOCKS:
-    if b[0] == "p":
+    if b[0] in ("p", "where"):
         for m in CITE.finditer(b[1]):
             _order += [n for n in cite_nums(m.group(1)) if n not in _order]
 _refs = next(b[1] for b in C.BLOCKS if b[0] == "refs")
@@ -234,9 +279,9 @@ def build(toc_pages, splits):
     for title, level in toc_entries():
         p = content.makeelement(W("p"), {})
         ppr = copy.deepcopy(top_ppr if level == 1 else sub_ppr)
-        if level == 3:  # подраздел: стиль «toc 3» с большим отступом
-            ppr.find(W("pStyle")).set(W("val"), "32")
         p.append(ppr)
+        if level > 1:  # главы и подразделы — без отступов, прижаты влево (замечание преподавателя)
+            ppr_set(p, "ind", {"left": "0", "firstLine": "0"}, before=("jc", "rPr"))
         for kind, val in (("t", title), ("tab", None), ("t", str(toc_pages.get(title, "")))):
             r = p.makeelement(W("r"), {})
             r.append(copy.deepcopy(top_rpr if level == 1 else sub_rpr))
@@ -351,7 +396,7 @@ def build(toc_pages, splits):
                     sz.set(W("val"), "20")
 
     # ---- текст по блокам
-    ch_no, new_page = 0, False
+    ch_no, eq_no, new_page = 0, 0, False
     for b in arrange(splits):
         kind = b[0]
         if kind == "pb":
@@ -366,7 +411,39 @@ def build(toc_pages, splits):
         elif kind == "sub":
             keep_next(para("ch", b[1]))
         elif kind == "p":
-            para("p", renum(b[1]))
+            text = renum(b[1])
+            (add(fill_rich(copy.deepcopy(T["p"]), text)) if "$" in text else para("p", text))
+        elif kind == "where":  # пояснение к формуле: «где …» без абзацного отступа
+            el = add(fill_rich(copy.deepcopy(T["p"]), renum(b[1])))
+            ppr_set(el, "ind", {"left": "0", "firstLine": "0"})
+        elif kind == "eq":  # формула отдельной строкой: по центру, номер в скобках справа
+            eq_no += 1
+            el = copy.deepcopy(T["p"])
+            rpr = copy.deepcopy(next(r for r in el.iter(W("r")) if r.find(W("t")) is not None).find(W("rPr")))
+            for child in list(el):
+                if child.tag != W("pPr"):
+                    el.remove(child)
+            ppr_set(el, "tabs")
+            tabs = ppr_of(el).find(W("tabs"))
+            for val, pos in (("center", "4677"), ("right", "9354")):
+                tabs.append(tabs.makeelement(W("tab"), {W("val"): val, W("pos"): pos}))
+            ppr_set(el, "spacing", {"before": "60", "after": "60", "line": "240", "lineRule": "auto"})
+            ppr_set(el, "ind", {"left": "0", "right": "0", "firstLine": "0"})
+            ppr_set(el, "jc", {"val": "left"})
+            for part in ("tab", "math", "tab", "num"):
+                if part == "math":
+                    el.append(omath(b[1]))
+                    continue
+                r = el.makeelement(W("r"), {})
+                r.append(copy.deepcopy(rpr))
+                if part == "tab":
+                    r.append(r.makeelement(W("tab"), {}))
+                else:
+                    t = r.makeelement(W("t"), {})
+                    t.text = f"({eq_no})"
+                    r.append(t)
+                el.append(r)
+            add(el)
         elif kind == "table":
             _, _tpl, cap, head, rows, widths, align = b
             table(int(re.match(r"Таблица (\d+)", cap).group(1)), cap, head, rows, widths, align)
@@ -466,9 +543,32 @@ def analyze(splits):
     return toc, fix
 
 
+LO_PYTHON = r"C:\Program Files\LibreOffice\program\python.exe"
+
+
 def convert():
-    subprocess.run([SOFFICE, "--headless", "--convert-to", "pdf", "--outdir", str(OUT.parent), str(OUT)],
-                   check=True, capture_output=True)
+    """PDF через LibreOffice (UNO): формулам задаются 14 pt и Times New Roman, см. lo_export.py.
+    Если LibreOffice завис (бывает после аварийно завершённого экземпляра), процессы и блокировки
+    убираются, и экспорт повторяется."""
+    lock = OUT.with_name(".~lock." + OUT.name + "#")
+    for attempt in range(3):
+        lock.unlink(missing_ok=True)
+        try:
+            # без перехвата вывода: иначе при зависании ожидание каналов не прерывается по таймауту
+            before = PDF.stat().st_mtime if PDF.exists() else 0
+            r = subprocess.run([LO_PYTHON, str(pathlib.Path(__file__).with_name("lo_export.py")), str(OUT), str(PDF)],
+                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+            if r.returncode == 0 and PDF.exists() and PDF.stat().st_mtime > before:
+                return
+            print("экспорт не удался, повтор", flush=True)
+        except subprocess.TimeoutExpired:
+            print("экспорт завис, перезапуск LibreOffice", flush=True)
+        subprocess.run(["powershell", "-NoProfile", "-Command",
+                        "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*lo_profile_qubik*' -or "
+                        "$_.CommandLine -like '*lo_export.py*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; "
+                        "Remove-Item \"$env:TEMP\lo_profile_qubik\.lock\" -Force -ErrorAction SilentlyContinue"],
+                       capture_output=True, timeout=60)
+    raise RuntimeError("не удалось получить PDF")
 
 
 if __name__ == "__main__":
@@ -477,7 +577,7 @@ if __name__ == "__main__":
         build(toc, splits)
         convert()
         new_toc, fix = analyze(splits)
-        print(f"проход {it}: страниц {pymupdf.open(PDF).page_count}, разбиение таблиц {splits}, исправление {fix}")
+        print(f"проход {it}: страниц {pymupdf.open(PDF).page_count}, разбиение таблиц {splits}, исправление {fix}", flush=True)
         if fix:
             splits.update(fix)
             toc = new_toc
