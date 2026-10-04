@@ -8,3 +8,5 @@ results/features/
 results_server/
 results/locks/
 results/smoke*.jsonl
+.~lock.*
+docs/SERVER_README.md
